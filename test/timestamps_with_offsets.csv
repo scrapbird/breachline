@@ -1,0 +1,10 @@
+timestamp,description
+2024-01-15T09:30:00+00:00,Offset +00:00 (UTC) - 09:30 UTC
+2024-01-15T09:30:00+13:00,Offset +13:00 (NZDT) - 09:30 in NZ = 20:30 previous day UTC
+2024-01-15T09:30:00+12:00,Offset +12:00 (NZST) - 09:30 in NZ = 21:30 previous day UTC
+2024-01-15T09:30:00-05:00,Offset -05:00 (EST) - 09:30 in EST = 14:30 UTC
+2024-01-15T09:30:00-08:00,Offset -08:00 (PST) - 09:30 in PST = 17:30 UTC
+2024-01-15T09:30:00+05:30,Offset +05:30 (IST India) - 09:30 in IST = 04:00 UTC
+2024-01-15T09:30:00+09:00,Offset +09:00 (JST) - 09:30 in Japan = 00:30 UTC
+2024-01-15T09:30:00+01:00,Offset +01:00 (CET) - 09:30 in CET = 08:30 UTC
+2024-01-15T09:30:00-03:30,Offset -03:30 (NST) - 09:30 in Newfoundland = 13:00 UTC

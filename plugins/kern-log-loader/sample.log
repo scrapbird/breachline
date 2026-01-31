@@ -1,0 +1,8 @@
+Jan 15 10:30:00 myhost kernel: [12345.678901] USB device connected
+Jan 15 10:30:01 myhost kernel: [12345.789012] usb 1-1: New USB device found, idVendor=0451, idProduct=8142
+Jan 15 10:30:02 myhost kernel: [12345.890123] usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+Jan 15 10:30:03 myhost NetworkManager[1234]: <info> device (eth0): state change: prepare -> config
+Jan 15 10:30:04 myhost systemd[1]: Started Session 42 of user root.
+Jan 15 10:30:05 myhost kernel: [12346.123456] EXT4-fs (sda1): mounted filesystem with ordered data mode
+Jan 15 10:30:06 myhost kernel: [12346.234567] audit: type=1400 audit(1705316406.123:42): apparmor="ALLOWED"
+Jan 15 10:30:07 myhost dbus-daemon[456]: [system] Successfully activated service 'org.freedesktop.hostname1'

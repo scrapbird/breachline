@@ -1,0 +1,14 @@
+#Software: Microsoft Internet Information Services 10.0
+#Version: 1.0
+#Date: 2024-01-15 10:30:00
+#Fields: date time s-ip cs-method cs-uri-stem cs-uri-query s-port cs-username c-ip cs(User-Agent) sc-status sc-substatus sc-win32-status time-taken
+2024-01-15 10:30:45 192.168.1.100 GET /api/users - 443 - 10.0.0.50 Mozilla/5.0+(Windows+NT+10.0;+Win64;+x64) 200 0 0 125
+2024-01-15 10:30:46 192.168.1.100 POST /api/login - 443 - 10.0.0.51 Mozilla/5.0+(Windows+NT+10.0;+Win64;+x64) 200 0 0 342
+2024-01-15 10:30:47 192.168.1.100 GET /api/products id=123 443 admin 10.0.0.52 Mozilla/5.0+(Macintosh;+Intel+Mac+OS+X+10_15_7) 200 0 0 89
+2024-01-15 10:30:48 192.168.1.100 GET /images/logo.png - 443 - 10.0.0.53 Mozilla/5.0+(iPhone;+CPU+iPhone+OS+14_0) 304 0 0 12
+2024-01-15 10:30:49 192.168.1.100 GET /api/admin/users - 443 - 10.0.0.54 curl/7.68.0 403 0 0 5
+2024-01-15 10:30:50 192.168.1.100 GET /nonexistent - 443 - 10.0.0.55 Mozilla/5.0+(Windows+NT+10.0;+Win64;+x64) 404 0 0 8
+2024-01-15 10:30:51 192.168.1.100 POST /api/upload - 443 admin 10.0.0.56 Mozilla/5.0+(Windows+NT+10.0;+Win64;+x64) 201 0 0 1523
+2024-01-15 10:30:52 192.168.1.100 DELETE /api/users/5 - 443 admin 10.0.0.57 PostmanRuntime/7.29.0 200 0 0 156
+2024-01-15 10:30:53 192.168.1.100 GET /api/health - 443 - 10.0.0.58 HealthChecker/1.0 200 0 0 3
+2024-01-15 10:30:54 192.168.1.100 GET /api/metrics - 443 monitor 10.0.0.59 Prometheus/2.30.0 200 0 0 45

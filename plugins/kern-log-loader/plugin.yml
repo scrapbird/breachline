@@ -1,0 +1,8 @@
+id: d4e5f6a7-b8c9-7d8e-1f2a-3b4c5d6e7f8a
+name: Kern.log Loader
+version: 1.0.0
+description: Load Linux kernel log files (kern.log, syslog, messages) into BreachLine with parsed timestamp, hostname, facility, and message fields
+executable: kern-log-loader
+extensions:
+  - .log
+author: BreachLine Team

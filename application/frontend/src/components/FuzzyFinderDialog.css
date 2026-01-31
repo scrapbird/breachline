@@ -1,0 +1,156 @@
+.fuzzy-finder-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  z-index: 10000;
+}
+
+.fuzzy-finder-dialog {
+  background-color: #2E3436;
+  border: 1px solid #444;
+  border-radius: 8px;
+  width: 858px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fuzzy-finder-input {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 16px;
+  border: none;
+  border-bottom: 1px solid #444;
+  background-color: #1e1e1e;
+  color: #eee;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.fuzzy-finder-input::placeholder {
+  color: #999;
+}
+
+.fuzzy-finder-results {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.fuzzy-finder-results::-webkit-scrollbar {
+  width: 8px;
+}
+
+.fuzzy-finder-results::-webkit-scrollbar-track {
+  background: #2E3436;
+}
+
+.fuzzy-finder-results::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.fuzzy-finder-results::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.fuzzy-finder-item {
+  padding: 12px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #3a3a3a;
+  transition: background-color 0.1s;
+}
+
+.fuzzy-finder-item:hover,
+.fuzzy-finder-item.selected {
+  background-color: #3a3a3a;
+}
+
+.fuzzy-finder-item.selected {
+  border-left: 3px solid #3a6;
+}
+
+.fuzzy-finder-path {
+  color: #eee;
+  font-size: 14px;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  direction: rtl;
+  text-align: left;
+}
+
+.fuzzy-finder-path-inner {
+  direction: ltr;
+  display: inline-block;
+}
+
+.fuzzy-finder-item.open .fuzzy-finder-path {
+  color: #eee;
+}
+
+.fuzzy-finder-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.fuzzy-finder-badge {
+  background-color: #3a6;
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.fuzzy-finder-option-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fuzzy-finder-badge-jpath {
+  background-color: rgba(240, 160, 96, 0.25);
+  color: #f0a060;
+  border: 1px solid rgba(240, 160, 96, 0.4);
+}
+
+.fuzzy-finder-badge-noheader {
+  background-color: rgba(155, 155, 155, 0.25);
+  color: #9b9b9b;
+  border: 1px solid rgba(155, 155, 155, 0.4);
+}
+
+.fuzzy-finder-badge-tz {
+  background-color: rgba(107, 203, 119, 0.25);
+  color: #6bcb77;
+  border: 1px solid rgba(107, 203, 119, 0.4);
+  text-transform: none;
+}
+
+.fuzzy-finder-no-results {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}

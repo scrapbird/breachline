@@ -1,0 +1,890 @@
+:root {
+    --topbar-h: 52px; /* keep this in sync with .topbar height */
+}
+
+/* Custom spinner animation for cross-platform compatibility (especially Windows WebView2) */
+@keyframes spinner-rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Override FontAwesome's fa-spin with our custom animation to ensure it works on Windows */
+.fa-spin,
+.fas.fa-spinner.fa-spin {
+    animation: spinner-rotate 1s linear infinite !important;
+}
+
+html, body {
+    height: 100%;
+    margin: 0; /* remove default margins that create unwanted gaps/scroll */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Old versions of Firefox */
+    -o-user-select: none; /* Opera Presto */
+    user-select: None
+}
+
+#app,
+#App {
+    height: 100vh;
+    text-align: center;
+    background-color: #2E3436;
+    background: #2E3436;
+}
+
+/* App flex layout: topbar + content column where only grid scrolls */
+.app-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* prevent whole-page scroll */
+}
+
+.content {
+    flex: 1 1 auto;
+    min-height: 0; /* required so children can shrink below content height */
+    display: flex;
+    flex-direction: column;
+}
+
+.histogram-wrap {
+    flex: 0 0 auto; /* fixed by its child height */
+    padding: 0 12px; /* horizontal padding instead of external margins */
+}
+
+.grid-wrap {
+    flex: 1 1 auto; /* take remaining space */
+    min-height: 0;
+    overflow: auto; /* only this area scrolls */
+    padding: 8px 12px 12px; /* spacing around grid */
+}
+
+/* Splitter and console styles */
+.resizer-h {
+    flex: 0 0 auto;
+    height: 6px;
+    cursor: row-resize;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border-top: 1px solid #444;
+    border-bottom: 1px solid #222;
+}
+
+.console {
+    flex: 0 0 auto;
+    background: #1a1a1a;
+    border-top: 1px solid #444;
+    color: #ddd;
+    display: flex;
+    flex-direction: column;
+}
+
+.console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #202020;
+    border-bottom: 1px solid #333;
+    font-size: 12px;
+}
+
+.console-btn {
+    background: #333;
+    color: #ddd;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+.console-btn:hover { background: #3a3a3a; }
+
+.console-body {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 6px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: left; /* ensure left alignment */
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
+.log-row { display: flex; gap: 8px; align-items: baseline; white-space: pre-wrap; word-break: break-word; text-align: left; }
+.log-row .ts { opacity: 0.7; width: 110px; flex: 0 0 110px; white-space: nowrap; }
+.log-row .lvl { opacity: 0.85; width: 80px; flex: 0 0 80px; }
+.log-row .msg { flex: 1 1 auto; text-align: left; }
+.log-row.info .lvl { color: #8ec07c; }
+.log-row.warn .lvl { color: #fabd2f; }
+.log-row.error .lvl { color: #fb4934; }
+
+#logo {
+    display: block;
+    width: 50%;
+    height: 50%;
+    margin: auto;
+    padding: 10% 0 0;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-origin: content-box;
+}
+
+.result {
+    height: 20px;
+    line-height: 20px;
+    margin: 1.5rem auto;
+}
+
+/* Sticky top search bar */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1100;
+    background: #2E3436;
+    padding: 8px 12px;
+    min-height: var(--topbar-h);
+    border-bottom: 1px solid #444;
+}
+
+/* Make AG Grid scrollbars always visible when there's content to scroll */
+.ag-body-horizontal-scroll,
+.ag-body-vertical-scroll {
+    visibility: visible !important;
+}
+
+.ag-body-horizontal-scroll-viewport,
+.ag-body-vertical-scroll-viewport {
+    overflow: scroll !important;
+}
+
+/* Style the AG Grid scrollbars */
+.ag-body-horizontal-scroll-viewport::-webkit-scrollbar,
+.ag-body-vertical-scroll-viewport::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.ag-body-horizontal-scroll-viewport::-webkit-scrollbar-track,
+.ag-body-vertical-scroll-viewport::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.ag-body-horizontal-scroll-viewport::-webkit-scrollbar-thumb,
+.ag-body-vertical-scroll-viewport::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 5px;
+}
+
+.ag-body-horizontal-scroll-viewport::-webkit-scrollbar-thumb:hover,
+.ag-body-vertical-scroll-viewport::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* Make ag-Grid header sticky at the top of its scroll container and opaque */
+.ag-header {
+    position: sticky !important;
+    top: 0; /* stick to top inside grid scroll container */
+    z-index: 2; /* above body rows */
+    background-color: #2E3436 !important;
+    border-bottom: 1px solid #444;
+}
+
+/* Ensure all header sub-elements are opaque (no see-through) */
+.ag-header-viewport,
+.ag-header-container,
+.ag-header-row,
+.ag-header-cell,
+.ag-header-cell-label {
+    background-color: #2E3436 !important;
+}
+
+/* Style for empty column headers - greyed out appearance */
+.ag-header-cell.empty-column-header,
+.ag-header-cell.empty-column-header .ag-header-cell-label,
+.ag-header-cell.empty-column-header .ag-header-cell-text,
+.ag-header-cell.empty-column-header .ag-header-cell-comp-wrapper,
+.ag-header-cell.empty-column-header span {
+    color: #aaa !important;
+    font-style: italic !important;
+    opacity: 0.85 !important;
+}
+
+/* Bottom-right row count indicator - attached to grid container */
+.row-count-indicator {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    z-index: 2000;
+    background: rgba(30, 30, 30, 0.9);
+    color: #ddd;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: auto; /* allow hover to trigger docking behavior */
+    transition: right 160ms ease, left 160ms ease, opacity 120ms ease;
+}
+
+.row-count-indicator.left {
+    left: 12px;
+    right: auto;
+}
+
+/* Hidden state: visually hide and ignore pointer events */
+.row-count-indicator.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Themed select for dark UI: ensure readable contrast for control and options */
+.themed-select {
+    background: #1e1e1e;
+    color: #eee;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 6px 8px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+.themed-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(58, 166, 102, 0.35);
+    border-color: #3a6;
+}
+.themed-select option {
+    background: #1e1e1e;
+    color: #eee;
+}
+
+/* Modal overlay for settings dialog */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: #2E3436;
+    border: 1px solid #444;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 720px;
+    max-height: 90vh;
+    overflow: auto;
+    color: #eee;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #444;
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.modal-body {
+    padding: 20px;
+    min-height: 0;
+}
+
+.close-button {
+    background: transparent;
+    border: none;
+    color: #eee;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.close-button:hover {
+    opacity: 1;
+}
+
+/* Cell viewer plaintext - ensure text is selectable and style the selection */
+.cell-viewer-plaintext,
+.cell-viewer-plaintext * {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+}
+
+.cell-viewer-plaintext::selection,
+.cell-viewer-plaintext *::selection {
+    background-color: rgba(68, 138, 255, 0.35);
+    color: inherit;
+}
+
+/* Search term highlighting in grid cells */
+.search-highlight {
+    background-color: rgba(91, 155, 213, 0.45);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+/* Annotation Panel Styles */
+.annotation-panel {
+    flex: 0 0 auto;
+    background: #1a1a1a;
+    border-top: 1px solid #444;
+    color: #ddd;
+    display: flex;
+    flex-direction: column;
+}
+
+.annotation-panel-resizer {
+    cursor: ns-resize;
+}
+
+.annotation-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #202020;
+    border-bottom: 1px solid #333;
+    font-size: 12px;
+}
+
+.annotation-panel-title {
+    font-weight: 500;
+}
+
+.annotation-count {
+    margin-left: 8px;
+    opacity: 0.7;
+    font-weight: normal;
+}
+
+.annotation-panel-body {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 0;
+}
+
+.annotation-empty {
+    padding: 12px;
+    opacity: 0.7;
+    text-align: center;
+    font-size: 12px;
+}
+
+.annotation-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.annotation-table thead {
+    position: sticky;
+    top: 0;
+    background: #252525;
+    z-index: 1;
+}
+
+.annotation-table th {
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 500;
+    border-bottom: 1px solid #333;
+    color: #aaa;
+}
+
+.annotation-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #2a2a2a;
+    text-align: left;
+}
+
+.annotation-col-index {
+    width: 60px;
+    text-align: left;
+    padding-right: 16px !important;
+}
+
+.annotation-col-note {
+    width: auto;
+}
+
+.annotation-row {
+    cursor: pointer;
+    transition: background-color 0.1s;
+    border-left: 3px solid transparent;
+}
+
+.annotation-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.annotation-note-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 400px;
+}
+
+.annotation-no-note {
+    opacity: 0.5;
+}
+
+/* Annotation color styles */
+.annotation-color-blue {
+    border-left-color: #4a9eff;
+    background: rgba(74, 158, 255, 0.08);
+}
+.annotation-color-blue:hover {
+    background: rgba(74, 158, 255, 0.15);
+}
+
+.annotation-color-green {
+    border-left-color: #4caf50;
+    background: rgba(76, 175, 80, 0.08);
+}
+.annotation-color-green:hover {
+    background: rgba(76, 175, 80, 0.15);
+}
+
+.annotation-color-yellow {
+    border-left-color: #ffeb3b;
+    background: rgba(255, 235, 59, 0.08);
+}
+.annotation-color-yellow:hover {
+    background: rgba(255, 235, 59, 0.15);
+}
+
+.annotation-color-orange {
+    border-left-color: #ff9800;
+    background: rgba(255, 152, 0, 0.08);
+}
+.annotation-color-orange:hover {
+    background: rgba(255, 152, 0, 0.15);
+}
+
+.annotation-color-red {
+    border-left-color: #f44336;
+    background: rgba(244, 67, 54, 0.08);
+}
+.annotation-color-red:hover {
+    background: rgba(244, 67, 54, 0.15);
+}
+
+.annotation-color-grey {
+    border-left-color: #9e9e9e;
+    background: rgba(158, 158, 158, 0.08);
+}
+.annotation-color-grey:hover {
+    background: rgba(158, 158, 158, 0.15);
+}
+
+.annotation-color-white {
+    border-left-color: #e0e0e0;
+    background: rgba(224, 224, 224, 0.08);
+}
+.annotation-color-white:hover {
+    background: rgba(224, 224, 224, 0.15);
+}
+
+/* Annotation actions column */
+.annotation-col-actions {
+    width: 40px;
+    text-align: center;
+    padding: 4px !important;
+}
+
+.annotation-edit-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.annotation-edit-btn:hover {
+    color: #0cf;
+    background: rgba(0, 204, 255, 0.1);
+}
+
+/* Results Panel Styles (container for Annotations + Search) */
+.results-panel {
+    flex: 0 0 auto;
+    background: #1a1a1a;
+    border-top: 1px solid #444;
+    color: #ddd;
+    display: flex;
+    flex-direction: column;
+}
+
+.results-panel-tabs {
+    display: flex;
+    background: #151515;
+    border-bottom: 1px solid #333;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.results-panel-tab {
+    background: transparent;
+    border: none;
+    color: #888;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    display: flex;
+    align-items: center;
+}
+
+.results-panel-tab:hover {
+    color: #ccc;
+}
+
+.results-panel-tab.active {
+    color: #fff;
+    border-bottom-color: #4a9eff;
+}
+
+.results-panel-tab-count {
+    margin-left: 6px;
+    opacity: 0.6;
+    font-size: 11px;
+}
+
+.results-panel-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Search Panel Styles */
+.search-panel-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.search-panel-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #202020;
+    border-bottom: 1px solid #333;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.search-panel-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.search-term-display {
+    font-family: monospace;
+    color: #4a9eff;
+    background: rgba(74, 158, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.search-count {
+    color: #aaa;
+}
+
+.search-panel-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.search-action-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.search-action-btn:hover {
+    color: #4a9eff;
+    background: rgba(74, 158, 255, 0.1);
+}
+
+.search-panel-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+.search-empty {
+    padding: 12px;
+    opacity: 0.7;
+    text-align: center;
+    font-size: 12px;
+}
+
+.search-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.search-table thead {
+    position: sticky;
+    top: 0;
+    background: #252525;
+    z-index: 1;
+}
+
+.search-table th {
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 500;
+    border-bottom: 1px solid #333;
+    color: #aaa;
+}
+
+.search-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #2a2a2a;
+    text-align: left;
+}
+
+.search-col-index {
+    width: 60px;
+    text-align: left;
+}
+
+.search-col-column {
+    width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-col-snippet {
+    width: auto;
+}
+
+.search-row {
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.search-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.search-snippet-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 500px;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+/* Search pagination */
+.search-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    background: #202020;
+    border-top: 1px solid #333;
+    flex-shrink: 0;
+}
+
+.search-page-btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: #aaa;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+
+.search-page-btn:hover:not(:disabled) {
+    color: #fff;
+    border-color: #4a9eff;
+    background: rgba(74, 158, 255, 0.1);
+}
+
+.search-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.search-page-info {
+    color: #888;
+    font-size: 12px;
+    min-width: 120px;
+    text-align: center;
+}
+
+/* Annotation panel inner wrapper for ResultsPanel */
+.annotation-panel-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Search panel input bar */
+.search-panel-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #202020;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+
+.search-input-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0 8px;
+    gap: 6px;
+}
+
+.search-input-wrapper:focus-within {
+    border-color: #4a9eff;
+}
+
+.search-input-icon {
+    color: #666;
+    font-size: 12px;
+}
+
+.search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #eee;
+    font-size: 13px;
+    padding: 6px 0;
+    outline: none;
+}
+
+.search-input::placeholder {
+    color: #666;
+}
+
+.search-input:disabled {
+    opacity: 0.5;
+}
+
+.search-regex-toggle {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #666;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: bold;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+
+.search-regex-toggle:hover:not(:disabled) {
+    color: #aaa;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.search-regex-toggle.active {
+    color: #4a9eff;
+    background: rgba(74, 158, 255, 0.15);
+    border-color: rgba(74, 158, 255, 0.3);
+}
+
+.search-regex-toggle:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.search-cancel-btn {
+    color: #ff6b6b !important;
+}
+
+.search-cancel-btn:hover {
+    background: rgba(255, 107, 107, 0.15) !important;
+    border-color: rgba(255, 107, 107, 0.3) !important;
+}
+
+/* Search loading indicator */
+.search-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+    color: #888;
+    font-size: 13px;
+}
+
+.search-loading i {
+    font-size: 24px;
+    color: #4a9eff;
+}
+
+/* Search placeholder */
+.search-placeholder {
+    flex-direction: column;
+    gap: 8px;
+    color: #555;
+}
+
+.search-placeholder i {
+    font-size: 24px;
+    opacity: 0.5;
+}

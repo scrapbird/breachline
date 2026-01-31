@@ -1,0 +1,537 @@
+#!/usr/bin/env python3
+"""
+BreachLine Plugin - IIS Log Loader
+
+Parses Microsoft IIS web server log files in three formats:
+1. W3C Extended Log Format (most common, customizable fields)
+2. IIS Native Log Format (fixed comma-separated format)
+3. NCSA Common Log Format (fixed space-separated format)
+
+Output columns vary by format:
+- W3C Extended: Dynamic based on #Fields directive
+- IIS Native: Fixed set of 14 columns
+- NCSA Common: Fixed set of 9 columns
+
+Timezone handling:
+- W3C Extended: UTC timestamps, output with Z suffix
+- IIS Native: Local time without timezone, user's DefaultIngestTimezone applies
+- NCSA Common: Local time with offset preserved as-is
+"""
+
+import argparse
+import csv
+import re
+import sys
+import logging
+from datetime import datetime
+from typing import Optional, List, Tuple
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(levelname)s: %(message)s',
+    stream=sys.stderr
+)
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Format Detection
+# ============================================================================
+
+class LogFormat:
+    W3C_EXTENDED = "w3c"
+    IIS_NATIVE = "iis"
+    NCSA_COMMON = "ncsa"
+    UNKNOWN = "unknown"
+
+
+def detect_format(file_path: str) -> Tuple[str, Optional[List[str]]]:
+    """
+    Detect the IIS log format by examining the file content.
+    Returns (format_type, fields_list_or_none).
+    For W3C format, fields_list contains the parsed #Fields directive.
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            lines = []
+            for _ in range(50):  # Read up to 50 lines for detection
+                line = f.readline()
+                if not line:
+                    break
+                lines.append(line.rstrip('\n\r'))
+            
+            # Check for W3C Extended format (has # directives)
+            for line in lines:
+                if line.startswith('#Software:') or line.startswith('#Version:'):
+                    # This is W3C Extended format
+                    fields = None
+                    for l in lines:
+                        if l.startswith('#Fields:'):
+                            fields = l[8:].strip().split()
+                            break
+                    return LogFormat.W3C_EXTENDED, fields
+                if line.startswith('#Fields:'):
+                    fields = line[8:].strip().split()
+                    return LogFormat.W3C_EXTENDED, fields
+            
+            # Find first non-empty, non-comment line
+            first_data_line = None
+            for line in lines:
+                if line and not line.startswith('#'):
+                    first_data_line = line
+                    break
+            
+            if not first_data_line:
+                return LogFormat.UNKNOWN, None
+            
+            # Check for IIS native format (comma-separated, specific pattern)
+            if ', ' in first_data_line:
+                parts = first_data_line.split(', ')
+                if len(parts) >= 10:
+                    # IIS native format has ~15 comma-separated fields
+                    return LogFormat.IIS_NATIVE, None
+            
+            # Check for NCSA Common format
+            # Pattern: IP - user [timestamp] "request" status bytes
+            ncsa_pattern = re.compile(
+                r'^\S+\s+\S+\s+\S+\s+\[.+\]\s+"[^"]+"\s+\d+\s+\d+'
+            )
+            if ncsa_pattern.match(first_data_line):
+                return LogFormat.NCSA_COMMON, None
+            
+            # Default: assume W3C without directives
+            # Try to parse as space-separated
+            parts = first_data_line.split()
+            if len(parts) >= 3:
+                # Check if first field looks like a date
+                if re.match(r'\d{4}-\d{2}-\d{2}', parts[0]):
+                    return LogFormat.W3C_EXTENDED, None
+            
+            return LogFormat.UNKNOWN, None
+            
+    except Exception as e:
+        logger.error(f"Error detecting format: {e}")
+        return LogFormat.UNKNOWN, None
+
+
+# ============================================================================
+# W3C Extended Format Parser
+# ============================================================================
+
+# Default W3C fields when #Fields directive is missing
+DEFAULT_W3C_FIELDS = [
+    'date', 'time', 's-ip', 'cs-method', 'cs-uri-stem', 'cs-uri-query',
+    's-port', 'cs-username', 'c-ip', 'cs(User-Agent)', 'cs(Referer)',
+    'sc-status', 'sc-substatus', 'sc-win32-status', 'time-taken'
+]
+
+
+def get_w3c_header(fields: Optional[List[str]]) -> List[str]:
+    """
+    Generate CSV header for W3C Extended format.
+    Combines date and time into a single timestamp column.
+    """
+    if fields is None:
+        fields = DEFAULT_W3C_FIELDS
+    
+    # Check if we have separate date and time fields
+    has_date = 'date' in fields
+    has_time = 'time' in fields
+    
+    header = []
+    if has_date and has_time:
+        header.append('timestamp')
+        for field in fields:
+            if field not in ('date', 'time'):
+                header.append(field)
+    else:
+        # Just use fields as-is
+        for field in fields:
+            header.append(field)
+    
+    return header
+
+
+def parse_w3c_line(line: str, fields: Optional[List[str]]) -> Optional[List[str]]:
+    """
+    Parse a W3C Extended format log line.
+    Returns list of values or None if line should be skipped.
+    """
+    line = line.rstrip('\n\r')
+    
+    # Skip empty lines and directives
+    if not line or line.startswith('#'):
+        return None
+    
+    if fields is None:
+        fields = DEFAULT_W3C_FIELDS
+    
+    parts = line.split()
+    
+    # Check if we have enough fields
+    if len(parts) < len(fields):
+        # Pad with empty strings
+        parts.extend([''] * (len(fields) - len(parts)))
+    elif len(parts) > len(fields):
+        # Truncate (shouldn't happen in well-formed logs)
+        parts = parts[:len(fields)]
+    
+    # Build field-value mapping
+    field_values = dict(zip(fields, parts))
+    
+    # Combine date and time into timestamp
+    has_date = 'date' in fields
+    has_time = 'time' in fields
+    
+    result = []
+    if has_date and has_time:
+        date_val = field_values.get('date', '')
+        time_val = field_values.get('time', '')
+        # W3C timestamps are UTC, output with Z suffix
+        if date_val and time_val and date_val != '-' and time_val != '-':
+            timestamp = f"{date_val}T{time_val}Z"
+        else:
+            timestamp = f"{date_val} {time_val}"
+        result.append(timestamp)
+        
+        for field in fields:
+            if field not in ('date', 'time'):
+                val = field_values.get(field, '')
+                result.append(val if val != '-' else '')
+    else:
+        for field in fields:
+            val = field_values.get(field, '')
+            result.append(val if val != '-' else '')
+    
+    return result
+
+
+# ============================================================================
+# IIS Native Format Parser
+# ============================================================================
+
+# IIS native format has fixed fields (comma-separated)
+IIS_NATIVE_HEADER = [
+    'timestamp', 'client_ip', 'username', 'service', 'server',
+    'server_ip', 'time_taken', 'bytes_received', 'bytes_sent',
+    'status_code', 'win32_status', 'method', 'uri', 'parameters'
+]
+
+
+def get_iis_native_header() -> List[str]:
+    """Return header for IIS native format."""
+    return IIS_NATIVE_HEADER
+
+
+def parse_iis_native_line(line: str) -> Optional[List[str]]:
+    """
+    Parse an IIS native format log line.
+    Format: client_ip, username, date, time, service, server, server_ip, 
+            time_taken, bytes_received, bytes_sent, status, win32_status, 
+            method, uri, parameters
+    
+    Returns list of values or None if line should be skipped.
+    """
+    line = line.rstrip('\n\r')
+    
+    if not line:
+        return None
+    
+    # Split by comma-space
+    parts = [p.strip() for p in line.split(',')]
+    
+    if len(parts) < 14:
+        logger.debug(f"IIS native line has only {len(parts)} fields, expected 14+")
+        # Pad with empty strings
+        parts.extend([''] * (14 - len(parts)))
+    
+    # Extract fields according to IIS native format:
+    # 0: client_ip, 1: username, 2: date, 3: time, 4: service, 5: server,
+    # 6: server_ip, 7: time_taken, 8: bytes_received, 9: bytes_sent,
+    # 10: status, 11: win32_status, 12: method, 13: uri, 14: parameters (if present)
+    
+    client_ip = parts[0] if parts[0] != '-' else ''
+    username = parts[1] if parts[1] != '-' else ''
+    date_val = parts[2] if len(parts) > 2 else ''
+    time_val = parts[3] if len(parts) > 3 else ''
+    service = parts[4] if len(parts) > 4 and parts[4] != '-' else ''
+    server = parts[5] if len(parts) > 5 and parts[5] != '-' else ''
+    server_ip = parts[6] if len(parts) > 6 and parts[6] != '-' else ''
+    time_taken = parts[7] if len(parts) > 7 and parts[7] != '-' else ''
+    bytes_received = parts[8] if len(parts) > 8 and parts[8] != '-' else ''
+    bytes_sent = parts[9] if len(parts) > 9 and parts[9] != '-' else ''
+    status_code = parts[10] if len(parts) > 10 and parts[10] != '-' else ''
+    win32_status = parts[11] if len(parts) > 11 and parts[11] != '-' else ''
+    method = parts[12] if len(parts) > 12 and parts[12] != '-' else ''
+    uri = parts[13] if len(parts) > 13 and parts[13] != '-' else ''
+    parameters = parts[14] if len(parts) > 14 and parts[14] != '-' else ''
+    
+    # Combine date and time into timestamp
+    # IIS native format uses local time (no timezone info)
+    # Format: MM/DD/YY and HH:MM:SS
+    if date_val and time_val:
+        try:
+            # Parse MM/DD/YY format
+            date_parts = date_val.split('/')
+            if len(date_parts) == 3:
+                month, day, year = date_parts
+                # Handle 2-digit vs 4-digit year
+                if len(year) == 2:
+                    year_int = int(year)
+                    if year_int >= 70:
+                        year = f"19{year}"
+                    else:
+                        year = f"20{year}"
+                timestamp = f"{year}-{month.zfill(2)}-{day.zfill(2)}T{time_val}"
+            else:
+                timestamp = f"{date_val} {time_val}"
+        except Exception:
+            timestamp = f"{date_val} {time_val}"
+    else:
+        timestamp = ''
+    
+    return [
+        timestamp, client_ip, username, service, server, server_ip,
+        time_taken, bytes_received, bytes_sent, status_code, win32_status,
+        method, uri, parameters
+    ]
+
+
+# ============================================================================
+# NCSA Common Format Parser
+# ============================================================================
+
+# NCSA Common format has fixed fields
+NCSA_COMMON_HEADER = [
+    'timestamp', 'client_ip', 'ident', 'username', 'method',
+    'uri', 'protocol', 'status_code', 'bytes_sent'
+]
+
+# Pattern for NCSA Common format
+# Format: IP ident user [timestamp] "request" status bytes
+NCSA_PATTERN = re.compile(
+    r'^(?P<client_ip>\S+)\s+'
+    r'(?P<ident>\S+)\s+'
+    r'(?P<username>\S+)\s+'
+    r'\[(?P<timestamp>[^\]]+)\]\s+'
+    r'"(?P<request>[^"]*)"\s+'
+    r'(?P<status>\d+)\s+'
+    r'(?P<bytes>\S+)'
+)
+
+
+def get_ncsa_common_header() -> List[str]:
+    """Return header for NCSA Common format."""
+    return NCSA_COMMON_HEADER
+
+
+def parse_ncsa_common_line(line: str) -> Optional[List[str]]:
+    """
+    Parse an NCSA Common format log line.
+    Format: IP ident user [DD/Mon/YYYY:HH:MM:SS +ZZZZ] "METHOD URI PROTO" status bytes
+    
+    Timestamp is preserved as-is with timezone offset for BreachLine to parse.
+    
+    Returns list of values or None if line should be skipped.
+    """
+    line = line.rstrip('\n\r')
+    
+    if not line:
+        return None
+    
+    match = NCSA_PATTERN.match(line)
+    if not match:
+        logger.debug(f"NCSA line did not match pattern: {line[:80]}...")
+        return None
+    
+    client_ip = match.group('client_ip')
+    ident = match.group('ident')
+    username = match.group('username')
+    timestamp_raw = match.group('timestamp')
+    request = match.group('request')
+    status = match.group('status')
+    bytes_sent = match.group('bytes')
+    
+    # Clean up dash placeholders
+    if client_ip == '-':
+        client_ip = ''
+    if ident == '-':
+        ident = ''
+    if username == '-':
+        username = ''
+    if bytes_sent == '-':
+        bytes_sent = ''
+    
+    # Parse request into method, uri, protocol
+    request_parts = request.split(' ', 2)
+    method = request_parts[0] if len(request_parts) > 0 else ''
+    uri = request_parts[1] if len(request_parts) > 1 else ''
+    protocol = request_parts[2] if len(request_parts) > 2 else ''
+    
+    # Convert timestamp from NCSA format to ISO 8601
+    # Input: DD/Mon/YYYY:HH:MM:SS +ZZZZ
+    # Output: YYYY-MM-DDTHH:MM:SS+ZZ:ZZ (preserved timezone)
+    timestamp = convert_ncsa_timestamp(timestamp_raw)
+    
+    return [
+        timestamp, client_ip, ident, username, method,
+        uri, protocol, status, bytes_sent
+    ]
+
+
+def convert_ncsa_timestamp(ts: str) -> str:
+    """
+    Convert NCSA timestamp format to ISO 8601 format.
+    Input: DD/Mon/YYYY:HH:MM:SS +ZZZZ or DD/Mon/YYYY:HH:MM:SS -ZZZZ
+    Output: YYYY-MM-DDTHH:MM:SS+ZZ:ZZ (preserving original timezone offset)
+    """
+    # Month abbreviation to number
+    months = {
+        'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+        'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+        'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+    }
+    
+    try:
+        # Pattern: DD/Mon/YYYY:HH:MM:SS +ZZZZ
+        pattern = re.compile(
+            r'(\d{1,2})/(\w{3})/(\d{4}):(\d{2}):(\d{2}):(\d{2})\s*([+-]\d{4})?'
+        )
+        match = pattern.match(ts)
+        if not match:
+            return ts
+        
+        day, mon, year, hour, minute, second, tz_offset = match.groups()
+        
+        month = months.get(mon, '01')
+        
+        # Format: YYYY-MM-DDTHH:MM:SS
+        iso_ts = f"{year}-{month}-{day.zfill(2)}T{hour}:{minute}:{second}"
+        
+        # Add timezone offset if present
+        if tz_offset:
+            # Convert +HHMM to +HH:MM
+            sign = tz_offset[0]
+            hours = tz_offset[1:3]
+            mins = tz_offset[3:5]
+            iso_ts += f"{sign}{hours}:{mins}"
+        
+        return iso_ts
+        
+    except Exception as e:
+        logger.debug(f"Failed to parse NCSA timestamp '{ts}': {e}")
+        return ts
+
+
+# ============================================================================
+# Main Plugin Logic
+# ============================================================================
+
+def output_header(file_path: str):
+    """Output CSV header row based on detected format."""
+    format_type, fields = detect_format(file_path)
+    
+    if format_type == LogFormat.W3C_EXTENDED:
+        header = get_w3c_header(fields)
+    elif format_type == LogFormat.IIS_NATIVE:
+        header = get_iis_native_header()
+    elif format_type == LogFormat.NCSA_COMMON:
+        header = get_ncsa_common_header()
+    else:
+        # Default to W3C with default fields
+        logger.warning(f"Unknown format, defaulting to W3C Extended")
+        header = get_w3c_header(None)
+    
+    writer = csv.writer(sys.stdout)
+    writer.writerow(header)
+
+
+def output_count(file_path: str):
+    """Output row count (excluding header and directives)."""
+    format_type, fields = detect_format(file_path)
+    
+    try:
+        count = 0
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and directives
+                if line and not line.startswith('#'):
+                    count += 1
+        print(count)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def output_stream(file_path: str):
+    """Output full CSV with header and data rows."""
+    format_type, fields = detect_format(file_path)
+    
+    try:
+        writer = csv.writer(sys.stdout)
+        
+        # Output header
+        if format_type == LogFormat.W3C_EXTENDED:
+            header = get_w3c_header(fields)
+            parse_func = lambda line: parse_w3c_line(line, fields)
+        elif format_type == LogFormat.IIS_NATIVE:
+            header = get_iis_native_header()
+            parse_func = parse_iis_native_line
+        elif format_type == LogFormat.NCSA_COMMON:
+            header = get_ncsa_common_header()
+            parse_func = parse_ncsa_common_line
+        else:
+            # Default to W3C with default fields
+            logger.warning(f"Unknown format, defaulting to W3C Extended")
+            header = get_w3c_header(None)
+            parse_func = lambda line: parse_w3c_line(line, None)
+        
+        writer.writerow(header)
+        
+        # Process file line by line (memory efficient)
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                parsed = parse_func(line)
+                if parsed:
+                    # Ensure row has same number of columns as header
+                    if len(parsed) < len(header):
+                        parsed.extend([''] * (len(header) - len(parsed)))
+                    elif len(parsed) > len(header):
+                        parsed = parsed[:len(header)]
+                    writer.writerow(parsed)
+                    
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error processing file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='BreachLine IIS log loader plugin')
+    parser.add_argument('--mode', required=True, choices=['header', 'count', 'stream'],
+                       help='Plugin execution mode')
+    parser.add_argument('--file', required=True, help='Path to IIS log file to process')
+    
+    args = parser.parse_args()
+    
+    try:
+        if args.mode == 'header':
+            output_header(args.file)
+        elif args.mode == 'count':
+            output_count(args.file)
+        elif args.mode == 'stream':
+            output_stream(args.file)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

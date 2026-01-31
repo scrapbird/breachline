@@ -1,0 +1,12 @@
+172.21.13.45 - - [08/Apr/2024:17:39:04 -0800] "GET /index.html HTTP/1.1" 200 3401
+172.21.13.46 - john [08/Apr/2024:17:39:10 -0800] "POST /api/login HTTP/1.1" 200 256
+172.21.13.47 - admin [08/Apr/2024:17:39:15 -0800] "GET /admin/dashboard HTTP/1.1" 200 8192
+172.21.13.48 - - [08/Apr/2024:17:39:20 -0800] "GET /images/banner.jpg HTTP/1.1" 200 45678
+172.21.13.49 - - [08/Apr/2024:17:39:25 -0800] "GET /api/products?category=electronics HTTP/1.1" 200 2048
+172.21.13.50 - - [08/Apr/2024:17:39:30 -0800] "GET /nonexistent HTTP/1.1" 404 512
+172.21.13.51 - hacker [08/Apr/2024:17:39:35 -0800] "GET /admin/config HTTP/1.1" 403 128
+172.21.13.52 - - [08/Apr/2024:17:39:40 -0800] "GET /static/app.js HTTP/1.1" 304 0
+172.21.13.53 - service [08/Apr/2024:17:39:45 -0800] "GET /health HTTP/1.1" 200 64
+172.21.13.54 - - [08/Apr/2024:17:39:50 -0800] "POST /api/order HTTP/1.1" 500 256
+172.16.255.255 - Microsoft\\fred [15/Jan/2024:10:30:00 +1300] "GET /scripts/iisadmin/ism.dll?http/serv HTTP/1.0" 200 3401
+10.0.0.100 - - [15/Jan/2024:10:30:05 +0000] "GET /api/timezone-test HTTP/1.1" 200 128

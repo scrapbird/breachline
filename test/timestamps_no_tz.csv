@@ -1,0 +1,7 @@
+timestamp,description
+2024-01-15 09:30:00,No timezone - should use default/override ingest timezone
+2024-01-15 14:45:30,No timezone - afternoon time
+2024-01-15 00:00:00,No timezone - midnight
+2024-01-15 23:59:59,No timezone - end of day
+2024-06-15 12:00:00,No timezone - summer date (DST consideration)
+2024-12-15 12:00:00,No timezone - winter date (no DST)

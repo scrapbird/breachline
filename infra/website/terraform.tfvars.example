@@ -1,0 +1,23 @@
+# AWS Region
+aws_region = "ap-southeast-2"
+
+# Project Configuration
+project_name = "breachline"
+environment  = "production"
+
+# Domain Configuration (optional - leave empty to use CloudFront domain)
+# domain_name = "example.com"
+# subdomain   = "www"
+# enable_ssl  = true
+
+# CloudFront Configuration
+price_class         = "PriceClass_100"  # Use only North America and Europe edge locations
+default_root_object = "index.html"
+error_document      = "error.html"
+
+# Tags
+tags = {
+  Project   = "breachline"
+  ManagedBy = "terraform"
+  Component = "website"
+}

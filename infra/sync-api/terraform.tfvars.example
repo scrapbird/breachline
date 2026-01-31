@@ -1,0 +1,28 @@
+# AWS Configuration
+aws_region = "ap-southeast-2"
+environment = "prod"
+
+# API Configuration
+api_domain_name = ""  # Optional: Custom domain like api.breachline.com
+
+# SES Email Configuration
+ses_email_from = "noreply@breachline.com"
+ses_verified_domain = "breachline.com"
+
+# Secrets (DO NOT commit actual values)
+license_public_key = "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+jwt_secret = "your-secure-random-jwt-secret-here"
+
+# Rate Limiting
+pin_request_rate_limit = 3
+
+# Lambda Configuration
+lambda_memory_size = 512
+lambda_timeout = 30
+
+# Data Retention
+audit_ttl_days = 90
+pin_ttl_hours = 12
+
+# Monitoring
+alarm_email = "alerts@breachline.com"

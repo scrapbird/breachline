@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""
+BreachLine Plugin - Kern.log Loader
+
+Parses Linux kernel log files (kern.log, syslog, messages) and outputs
+structured CSV data for analysis in BreachLine.
+
+Typical kern.log format:
+    Jan 15 10:30:00 hostname kernel: [12345.678901] message content here
+
+Output columns:
+    - timestamp: Parsed timestamp in ISO 8601 format
+    - hostname: The host that generated the log
+    - facility: Log facility (e.g., kernel, systemd, etc.)
+    - uptime: Kernel uptime in seconds (if present)
+    - message: The log message content
+"""
+
+import argparse
+import csv
+import re
+import sys
+import logging
+from datetime import datetime
+from typing import Optional, Tuple
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(levelname)s: %(message)s',
+    stream=sys.stderr
+)
+logger = logging.getLogger(__name__)
+
+# Regex pattern for ISO 8601 format (modern systemd/journald)
+# Format: 2025-12-14T02:45:09.954130+13:00 hostname facility: message
+# Example: 2025-12-14T02:45:09.954130+13:00 userpc kernel: audit: type=1400 ...
+KERN_LOG_PATTERN_ISO = re.compile(
+    r'^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)\s+'
+    r'(?P<hostname>\S+)\s+'
+    r'(?P<facility>\S+?):\s*'
+    r'(?:\[(?P<uptime>[\d.]+)\]\s*)?'
+    r'(?P<message>.*)$'
+)
+
+# Regex pattern for traditional syslog format
+# Format: Month Day HH:MM:SS hostname facility: [uptime] message
+# Example: Jan 15 10:30:00 myhost kernel: [12345.678901] USB device connected
+KERN_LOG_PATTERN_SYSLOG = re.compile(
+    r'^(?P<month>\w{3})\s+'
+    r'(?P<day>\d{1,2})\s+'
+    r'(?P<time>\d{2}:\d{2}:\d{2})\s+'
+    r'(?P<hostname>\S+)\s+'
+    r'(?P<facility>\S+?):\s*'
+    r'(?:\[(?P<uptime>[\d.]+)\]\s*)?'
+    r'(?P<message>.*)$'
+)
+
+# Alternative pattern for logs without facility colon (traditional format)
+KERN_LOG_PATTERN_ALT = re.compile(
+    r'^(?P<month>\w{3})\s+'
+    r'(?P<day>\d{1,2})\s+'
+    r'(?P<time>\d{2}:\d{2}:\d{2})\s+'
+    r'(?P<hostname>\S+)\s+'
+    r'(?P<message>.*)$'
+)
+
+# Month name to number mapping
+MONTHS = {
+    'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
+    'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
+    'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+}
+
+# CSV header columns
+HEADER = ['timestamp', 'hostname', 'facility', 'uptime', 'message']
+
+
+def parse_timestamp(month: str, day: str, time: str) -> str:
+    """
+    Parse timestamp components and return ISO 8601 format.
+    Uses current year since kern.log doesn't include year.
+    """
+    try:
+        month_num = MONTHS.get(month, 1)
+        day_num = int(day)
+        hour, minute, second = map(int, time.split(':'))
+        
+        # Use current year (kern.log doesn't include year)
+        current_year = datetime.now().year
+        
+        dt = datetime(current_year, month_num, day_num, hour, minute, second)
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        logger.debug(f"Failed to parse timestamp: {e}")
+        return f"{month} {day} {time}"
+
+
+def parse_iso_timestamp(timestamp: str) -> str:
+    """
+    Parse ISO 8601 timestamp and return in consistent format.
+    Input: 2025-12-14T02:45:09.954130+13:00
+    Output: 2025-12-14 02:45:09
+    """
+    try:
+        # Remove microseconds and timezone for display, keep date and time
+        # Handle format: 2025-12-14T02:45:09.954130+13:00
+        if 'T' in timestamp:
+            date_part, time_part = timestamp.split('T')
+            # Extract just HH:MM:SS from time part
+            time_clean = time_part.split('.')[0].split('+')[0].split('-')[0].split('Z')[0]
+            return f"{date_part} {time_clean}"
+        return timestamp
+    except Exception as e:
+        logger.debug(f"Failed to parse ISO timestamp: {e}")
+        return timestamp
+
+
+def parse_line(line: str) -> Optional[Tuple[str, str, str, str, str]]:
+    """
+    Parse a kern.log line and return (timestamp, hostname, facility, uptime, message).
+    Returns None if the line cannot be parsed.
+    """
+    line = line.rstrip('\n\r')
+    
+    if not line:
+        return None
+    
+    # Try ISO 8601 format first (modern systemd/journald logs)
+    match = KERN_LOG_PATTERN_ISO.match(line)
+    if match:
+        timestamp = parse_iso_timestamp(match.group('timestamp'))
+        hostname = match.group('hostname')
+        facility = match.group('facility')
+        uptime = match.group('uptime') or ''
+        message = match.group('message')
+        return (timestamp, hostname, facility, uptime, message)
+    
+    # Try traditional syslog format
+    match = KERN_LOG_PATTERN_SYSLOG.match(line)
+    if match:
+        timestamp = parse_timestamp(
+            match.group('month'),
+            match.group('day'),
+            match.group('time')
+        )
+        hostname = match.group('hostname')
+        facility = match.group('facility')
+        uptime = match.group('uptime') or ''
+        message = match.group('message')
+        return (timestamp, hostname, facility, uptime, message)
+    
+    # Try alternative pattern (no facility, traditional format)
+    match = KERN_LOG_PATTERN_ALT.match(line)
+    if match:
+        timestamp = parse_timestamp(
+            match.group('month'),
+            match.group('day'),
+            match.group('time')
+        )
+        hostname = match.group('hostname')
+        message = match.group('message')
+        return (timestamp, hostname, '', '', message)
+    
+    # If line doesn't match, return it as raw message
+    return ('', '', '', '', line)
+
+
+def output_header():
+    """Output CSV header row."""
+    writer = csv.writer(sys.stdout)
+    writer.writerow(HEADER)
+
+
+def output_count(file_path: str):
+    """Output row count (excluding header)."""
+    try:
+        count = 0
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip()
+                if line:  # Count non-empty lines
+                    count += 1
+        print(count)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def output_stream(file_path: str):
+    """Output full CSV with header and data rows."""
+    try:
+        writer = csv.writer(sys.stdout)
+        
+        # Output header
+        writer.writerow(HEADER)
+        
+        # Process file line by line (memory efficient)
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                parsed = parse_line(line)
+                if parsed:
+                    writer.writerow(parsed)
+                    
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error processing file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='BreachLine kern.log loader plugin')
+    parser.add_argument('--mode', required=True, choices=['header', 'count', 'stream'],
+                       help='Plugin execution mode')
+    parser.add_argument('--file', required=True, help='Path to kern.log file to process')
+    
+    args = parser.parse_args()
+    
+    try:
+        if args.mode == 'header':
+            output_header()
+        elif args.mode == 'count':
+            output_count(args.file)
+        elif args.mode == 'stream':
+            output_stream(args.file)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

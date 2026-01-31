@@ -1,0 +1,12 @@
+name = "BreachLine Theme"
+license = "MIT"
+licenselink = ""
+description = "A clean and modern theme for BreachLine website"
+homepage = ""
+tags = ["simple", "clean", "modern"]
+features = ["responsive"]
+min_version = "0.120.0"
+
+[author]
+  name = "BreachLine Team"
+  homepage = ""

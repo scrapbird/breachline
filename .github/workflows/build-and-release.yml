@@ -1,0 +1,172 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.1'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libgtk-3-dev libwebkit2gtk-4.1-dev
+      
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      
+      - name: Install frontend dependencies
+        run: |
+          cd application/frontend
+          npm install
+      
+      - name: Build Linux application
+        run: |
+          cd application
+          ~/go/bin/wails build -tags webkit2_41 -platform linux/amd64 -webview2 browser
+      
+      - name: Package Linux binary
+        run: |
+          cd application/build/bin
+          tar -czf breachline-linux-amd64.tar.gz breachline
+      
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breachline-linux-amd64
+          path: application/build/bin/breachline-linux-amd64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.1'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      
+      - name: Install frontend dependencies
+        run: |
+          cd application/frontend
+          npm install
+      
+      - name: Build Windows application
+        run: |
+          cd application
+          $env:Path += ";$env:USERPROFILE\go\bin"
+          wails build -platform windows/amd64 -tags webkit2_42 -webview2 browser
+      
+      - name: Package Windows binary
+        run: |
+          cd application/build/bin
+          Compress-Archive -Path breachline.exe -DestinationPath breachline-windows-amd64.zip
+      
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breachline-windows-amd64
+          path: application/build/bin/breachline-windows-amd64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.1'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      
+      - name: Install frontend dependencies
+        run: |
+          cd application/frontend
+          npm install
+      
+      - name: Build macOS application (Universal Binary)
+        run: |
+          cd application
+          ~/go/bin/wails build -platform darwin/universal -tags webkit2_42 -webview2 browser
+      
+      - name: Package macOS binary
+        run: |
+          cd application/build/bin
+          tar -czf breachline-macos-universal.tar.gz breachline.app
+      
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breachline-macos-universal
+          path: application/build/bin/breachline-macos-universal.tar.gz
+
+  create-release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: breachline-linux-amd64
+          path: artifacts
+      
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: breachline-windows-amd64
+          path: artifacts
+      
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: breachline-macos-universal
+          path: artifacts
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ github.ref_name }}
+          body: Release ${{ github.ref_name }}
+          files: |
+            artifacts/breachline-linux-amd64.tar.gz
+            artifacts/breachline-windows-amd64.zip
+            artifacts/breachline-macos-universal.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

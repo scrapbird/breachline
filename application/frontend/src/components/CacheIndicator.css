@@ -1,0 +1,41 @@
+.cache-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 36px;
+  border-left: 1px solid #404040;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.cache-indicator-label {
+  font-size: 11px;
+  color: #888888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.cache-indicator-bar-container {
+  width: 60px;
+  height: 8px;
+  background-color: #1e1e1e;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #404040;
+}
+
+.cache-indicator-bar {
+  height: 100%;
+  border-radius: 3px;
+  background-color: #666666;
+  transition: width 0.3s ease;
+}
+
+.cache-indicator-percent {
+  font-size: 11px;
+  color: #888888;
+  min-width: 28px;
+  text-align: right;
+}

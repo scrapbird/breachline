@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""
+Example BreachLine Plugin - Text Uppercaser
+
+This plugin demonstrates the BreachLine plugin API by implementing a simple
+file loader that reads any text file and outputs CSV with each line uppercased.
+
+Plugin API Requirements:
+- Support three modes: header, count, stream
+- Output CSV format
+- Read file path from --file argument
+- Return non-zero exit code on error
+"""
+
+import argparse
+import csv
+import sys
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Example BreachLine plugin')
+    parser.add_argument('--mode', required=True, choices=['header', 'count', 'stream'],
+                       help='Plugin execution mode')
+    parser.add_argument('--file', required=True, help='Path to file to process')
+    
+    args = parser.parse_args()
+    
+    try:
+        if args.mode == 'header':
+            output_header()
+        elif args.mode == 'count':
+            output_count(args.file)
+        elif args.mode == 'stream':
+            output_stream(args.file)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def output_header():
+    """Output CSV header row"""
+    writer = csv.writer(sys.stdout)
+    writer.writerow(['line_number', 'content'])
+
+
+def output_count(file_path):
+    """Output row count (excluding header)"""
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            count = sum(1 for _ in f)
+        print(count)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def output_stream(file_path):
+    """Output full CSV with header and data rows"""
+    try:
+        writer = csv.writer(sys.stdout)
+        
+        # Output header
+        writer.writerow(['line_number', 'content'])
+        
+        # Output data rows
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line_num, line in enumerate(f, start=1):
+                # Uppercase the content
+                content = line.rstrip('\n\r').upper()
+                writer.writerow([line_num, content])
+                
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error processing file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

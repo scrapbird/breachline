@@ -1,0 +1,223 @@
+.tab-bar {
+  display: flex;
+  align-items: center;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #404040;
+  padding: 0;
+  min-height: 36px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tab-list {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #2a2a2a;
+  border-right: 1px solid #404040;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+  min-width: 140px;
+  max-width: 220px;
+}
+
+.tab:hover {
+  background-color: #333333;
+}
+
+.tab.active {
+  background-color: #1e1e1e;
+  border-bottom: 2px solid #007acc;
+}
+
+.tab-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: #cccccc;
+}
+
+.tab.active .tab-title {
+  color: #ffffff;
+}
+
+.tab.sticky {
+  background-color: #2a2a2a;
+  font-weight: 600;
+}
+
+.tab.sticky:hover {
+  background-color: #234a62;
+}
+
+.tab.sticky.active {
+  background-color: #1e1e1e;
+  border-bottom: 2px solid #4a9eff;
+}
+
+.tab-icon-only {
+  min-width: auto;
+  max-width: none;
+  width: auto;
+  padding: 6px 12px;
+}
+
+.tab-icon-image {
+  width: 20px;
+  height: 20px;
+  display: block;
+  object-fit: contain;
+}
+
+.tab-file-icon {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Hide file icons on small screens to show more of the file path */
+@media (max-width: 768px) {
+  .tab-file-icon {
+    display: none;
+  }
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: none;
+  border: none;
+  color: #888888;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  border-radius: 3px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tab-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.tab-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  border-left: 1px solid #404040;
+  color: #888888;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tab-new:hover {
+  background-color: #333333;
+  color: #ffffff;
+}
+
+.tab-new:active {
+  background-color: #404040;
+}
+
+/* Tab badges for FileOptions */
+.tab-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.tab-badge {
+  font-size: 9px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tab-badge-jpath {
+  background-color: rgba(240, 160, 96, 0.25);
+  color: #f0a060;
+  border: 1px solid rgba(240, 160, 96, 0.4);
+}
+
+.tab-badge-noheader {
+  background-color: rgba(155, 155, 155, 0.25);
+  color: #9b9b9b;
+  border: 1px solid rgba(155, 155, 155, 0.4);
+}
+
+.tab-badge-tz {
+  background-color: rgba(107, 203, 119, 0.25);
+  color: #6bcb77;
+  border: 1px solid rgba(107, 203, 119, 0.4);
+  text-transform: none;
+}
+
+.tab-badge-fp {
+  background-color: rgba(168, 130, 255, 0.25);
+  color: #a882ff;
+  border: 1px solid rgba(168, 130, 255, 0.4);
+}
+
+.tab-badge-sf {
+  background-color: rgba(255, 182, 100, 0.25);
+  color: #ffb664;
+  border: 1px solid rgba(255, 182, 100, 0.4);
+}
+
+.tab-badge-plugin {
+  background-color: rgba(94, 207, 207, 0.25);
+  color: #5ecfcf;
+  border: 1px solid rgba(94, 207, 207, 0.4);
+}
+
+/* Increase tab width based on badge count */
+.tab.tab-badges-1 {
+  max-width: 260px;
+}
+
+.tab.tab-badges-2 {
+  max-width: 300px;
+}
+
+.tab.tab-badges-3 {
+  max-width: 340px;
+}
+
+.tab.tab-badges-4 {
+  max-width: 380px;
+}
+
+.tab.tab-badges-5 {
+  max-width: 420px;
+}
+
+.tab.tab-badges-6 {
+  max-width: 460px;
+}

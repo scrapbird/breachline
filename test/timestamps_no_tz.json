@@ -1,0 +1,8 @@
+[
+  {"timestamp": "2024-01-15 09:30:00", "description": "No timezone - should use default/override ingest timezone"},
+  {"timestamp": "2024-01-15 14:45:30", "description": "No timezone - afternoon time"},
+  {"timestamp": "2024-01-15 00:00:00", "description": "No timezone - midnight"},
+  {"timestamp": "2024-01-15 23:59:59", "description": "No timezone - end of day"},
+  {"timestamp": "2024-06-15 12:00:00", "description": "No timezone - summer date (DST consideration)"},
+  {"timestamp": "2024-12-15 12:00:00", "description": "No timezone - winter date (no DST)"}
+]

@@ -1,0 +1,7 @@
+[
+  {"timestamp": "2024-01-15T09:30:00Z", "description": "UTC timezone (Z suffix) - 09:30 UTC"},
+  {"timestamp": "2024-01-15T14:45:30Z", "description": "UTC timezone (Z suffix) - 14:45 UTC"},
+  {"timestamp": "2024-01-15T00:00:00Z", "description": "UTC timezone (Z suffix) - midnight UTC"},
+  {"timestamp": "2024-01-15T23:59:59Z", "description": "UTC timezone (Z suffix) - end of day UTC"},
+  {"timestamp": "2024-06-15T12:00:00Z", "description": "UTC timezone (Z suffix) - summer noon UTC"}
+]

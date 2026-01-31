@@ -1,0 +1,11 @@
+timestamp,description
+2024-01-15T09:30:00Z,ISO8601 with Z - 09:30 UTC
+2024-01-15 09:30:00,Space separated no TZ - needs default/override
+2024-01-15T09:30:00+13:00,ISO8601 with NZ offset - 09:30 NZDT
+01/15/2024 09:30:00,US date format no TZ - needs default/override
+15/01/2024 09:30:00,EU date format no TZ - needs default/override
+2024-01-15T09:30:00.123Z,ISO8601 with milliseconds and Z - 09:30 UTC
+2024-01-15T09:30:00.123456Z,ISO8601 with microseconds and Z - 09:30 UTC
+2024-01-15 09:30:00.123,With milliseconds no TZ - needs default/override
+Jan 15 2024 09:30:00,Month name format no TZ - needs default/override
+15 Jan 2024 09:30:00,Day first month name no TZ - needs default/override

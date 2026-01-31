@@ -1,0 +1,127 @@
+package query
+
+import (
+	"io"
+	"testing"
+)
+
+func TestOrderedRowStreamPreservesOrder(t *testing.T) {
+	header := []string{"col1", "col2", "col3"}
+	stream := NewOrderedRowStream(header)
+
+	// Add rows in specific order
+	expectedRows := [][]string{
+		{"row1", "data1", "value1"},
+		{"row2", "data2", "value2"},
+		{"row3", "data3", "value3"},
+		{"row4", "data4", "value4"},
+		{"row5", "data5", "value5"},
+	}
+
+	// Add all rows to stream
+	for _, row := range expectedRows {
+		err := stream.AddRowOrdered(&row)
+		if err != nil {
+			t.Fatalf("Failed to add row: %v", err)
+		}
+	}
+
+	// Verify header
+	if len(stream.Header()) != len(header) {
+		t.Fatalf("Expected header length %d, got %d", len(header), len(stream.Header()))
+	}
+
+	for i, h := range header {
+		if stream.Header()[i] != h {
+			t.Fatalf("Expected header[%d] = %s, got %s", i, h, stream.Header()[i])
+		}
+	}
+
+	// Verify count
+	if stream.Count() != int64(len(expectedRows)) {
+		t.Fatalf("Expected count %d, got %d", len(expectedRows), stream.Count())
+	}
+
+	// Read rows back and verify order is preserved
+	var actualRows [][]string
+	for {
+		row, err := stream.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Error reading row: %v", err)
+		}
+		actualRows = append(actualRows, *row)
+	}
+
+	// Verify we got the same number of rows
+	if len(actualRows) != len(expectedRows) {
+		t.Fatalf("Expected %d rows, got %d", len(expectedRows), len(actualRows))
+	}
+
+	// Verify each row matches exactly (order preserved)
+	for i, expectedRow := range expectedRows {
+		actualRow := actualRows[i]
+		if len(actualRow) != len(expectedRow) {
+			t.Fatalf("Row %d: expected length %d, got %d", i, len(expectedRow), len(actualRow))
+		}
+
+		for j, expectedCell := range expectedRow {
+			if actualRow[j] != expectedCell {
+				t.Fatalf("Row %d, Col %d: expected %s, got %s", i, j, expectedCell, actualRow[j])
+			}
+		}
+	}
+}
+
+func TestOrderedRowStreamConcurrentAccess(t *testing.T) {
+	header := []string{"col1", "col2"}
+	stream := NewOrderedRowStream(header)
+
+	// Add some rows
+	rows := [][]string{
+		{"a", "1"},
+		{"b", "2"},
+		{"c", "3"},
+	}
+
+	for _, row := range rows {
+		err := stream.AddRowOrdered(&row)
+		if err != nil {
+			t.Fatalf("Failed to add row: %v", err)
+		}
+	}
+
+	// Test that Count() works correctly with concurrent access
+	count := stream.Count()
+	if count != 3 {
+		t.Fatalf("Expected count 3, got %d", count)
+	}
+
+	// Test that we can read all rows sequentially
+	var readRows [][]string
+	for {
+		row, err := stream.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Error reading row: %v", err)
+		}
+		readRows = append(readRows, *row)
+	}
+
+	if len(readRows) != 3 {
+		t.Fatalf("Expected to read 3 rows, got %d", len(readRows))
+	}
+
+	// Verify order is preserved
+	for i, expectedRow := range rows {
+		for j, expectedCell := range expectedRow {
+			if readRows[i][j] != expectedCell {
+				t.Fatalf("Row %d, Col %d: expected %s, got %s", i, j, expectedCell, readRows[i][j])
+			}
+		}
+	}
+}

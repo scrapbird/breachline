@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""
+Example BreachLine Plugin - CSV Passthrough
+
+This plugin demonstrates the BreachLine plugin API by implementing a simple
+file loader that reads .example CSV files and outputs them as-is.
+
+Plugin API Requirements:
+- Support three modes: header, count, stream
+- Output CSV format
+- Read file path from --file argument
+- Return non-zero exit code on error
+"""
+
+import argparse
+import csv
+import sys
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Example BreachLine plugin')
+    parser.add_argument('--mode', required=True, choices=['header', 'count', 'stream'],
+                       help='Plugin execution mode')
+    parser.add_argument('--file', required=True, help='Path to file to process')
+    
+    args = parser.parse_args()
+    
+    try:
+        if args.mode == 'header':
+            output_header(args.file)
+        elif args.mode == 'count':
+            output_count(args.file)
+        elif args.mode == 'stream':
+            output_stream(args.file)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def output_header(file_path):
+    """Output CSV header row from the file"""
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            writer = csv.writer(sys.stdout)
+            writer.writerow(header)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except StopIteration:
+        # If file is empty, output empty header
+        writer = csv.writer(sys.stdout)
+        writer.writerow([])
+    except Exception as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def output_count(file_path):
+    """Output row count (excluding header)"""
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            reader = csv.reader(f)
+            next(reader, None)  # Skip header row
+            count = sum(1 for _ in reader)
+        print(count)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def output_stream(file_path):
+    """Output the CSV file contents as-is"""
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            # Just output the file contents directly
+            for line in f:
+                print(line, end='')
+                
+    except FileNotFoundError:
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error processing file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
