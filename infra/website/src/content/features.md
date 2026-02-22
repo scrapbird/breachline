@@ -16,8 +16,6 @@ Load and analyze massive datasets up to 5-10 GB in size. Each row represents a t
 - **XLSX Files**: Excel spreadsheets
 - **JSON Files**: With custom JPATH expressions to locate and ingest list data
 
-Flexibly import data from various sources and formats used in security operations.
-
 ## Ingest Plugins
 
 BreachLine supports plugins to ingest data from various sources and formats used in security operations. Write custom plugins in any language to ingest data from any source or file type.
@@ -26,10 +24,17 @@ BreachLine supports plugins to ingest data from various sources and formats used
 
 Powerful SPL-like (Splunk Processing Language) filter syntax for real-time data filtering. Create complex queries to quickly isolate relevant events and identify patterns in your timeline data.
 
+- **Text Search**: Substring matching across all fields, quoted phrases, and wildcard prefix search (`api*`)
+- **Field Operators**: `field=value`, `field!=value`, `field=*` (existence check), prefix wildcards
+- **Boolean Logic**: `AND` (implicit), `OR`, and `NOT` operators for complex queries
+- **Time Filters**: `after` and `before` with relative times (`15m ago`, `2h`, `3d`) or absolute timestamps
+- **Column Projection**: `| columns colA, colB` to select specific columns
+- **Deduplication**: `| dedup colA, colB` to remove duplicate rows based on column values
+- **Result Limiting**: `limit N` to cap the number of matched rows
+
 ## High-Performance Architecture
 
 - **Sort and Query Cache**: Fast re-sorting and re-querying without reprocessing
-- **External Sort**: Handle files larger than available memory using temporary file sorting
 - **Virtualized Data Grid**: Responsive interface that only renders visible rows for optimal performance
 
 ## Timeline Visualization

@@ -13,7 +13,7 @@ BreachLine is built for speed and ease of use when investigating audit logs, sec
 ## Key Capabilities
 
 - **Handle Large Datasets**: Process files up to 5-10 GB with ease
-- **Advanced Filtering**: SPL-like query language for real-time data filtering
+- **Advanced Filtering**: SPL-like query language with boolean logic, field operators, time filters, and dedup
 - **Multiple Format Support**: Load CSV, XLSX, and JSON files with custom JPATH expressions
 - **Fast Performance**: Intelligent caching and external sorting for optimal speed
 - **Timeline Visualization**: Interactive histograms and time-bucketed event counts
