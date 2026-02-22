@@ -43,12 +43,14 @@ nav .container {
 .logo {
     font-size: 1.8rem;
     font-weight: 700;
+    margin-bottom: 0;
 }
 
 .nav-menu {
     display: flex;
     list-style: none;
     gap: 2rem;
+    margin: 0;
 }
 
 .nav-menu a {
@@ -65,7 +67,7 @@ nav .container {
 /* Main Content */
 main {
     min-height: calc(100vh - 200px);
-    padding: 3rem 0;
+    padding: 1.5rem 0 3rem 0;
 }
 
 article, .home {
@@ -116,12 +118,16 @@ ul {
 
 /* Footer */
 footer {
-    background: #1a1a1a;
+    background: #2E3436;
     color: #ddd;
     text-align: center;
-    padding: 2rem 0;
+    padding: 1rem 0;
     margin-top: 3rem;
     border-top: 1px solid #444;
+}
+
+footer p {
+    margin-bottom: 0;
 }
 
 /* Purchase Buttons */
