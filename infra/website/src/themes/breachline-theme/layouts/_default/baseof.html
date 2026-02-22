@@ -14,7 +14,7 @@
     <header>
         <nav>
             <div class="container">
-                <h1 class="logo">{{ .Site.Title }}</h1>
+                <a href="/" class="logo"><img src="{{ "images/logo-universal.png" | relURL }}" alt="BreachLine Logo" class="logo-img">{{ .Site.Title }}</a>
                 <ul class="nav-menu">
                     {{ range .Site.Menus.main }}
                     <li><a href="{{ .URL }}">{{ .Name }}</a></li>
