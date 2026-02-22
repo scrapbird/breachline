@@ -26,6 +26,6 @@ theme = 'breachline-theme'
     url = '/download/'
     weight = 3
   [[menu.main]]
-    name = 'Pricing'
-    url = '/pricing/'
+    name = 'Purchase'
+    url = '/purchase/'
     weight = 4

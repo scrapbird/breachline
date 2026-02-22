@@ -144,12 +144,17 @@ footer p {
     box-shadow: 0 2px 8px rgba(58, 166, 102, 0.3);
     margin: 1rem 0;
     display: inline-block;
+    box-sizing: border-box;
+    line-height: 1.2;
+    text-align: center;
 }
 
 .purchase-btn:hover {
     background: #4bc57f;
+    color: white;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(58, 166, 102, 0.4);
+    text-decoration: none;
 }
 
 .purchase-btn:active {
@@ -180,6 +185,8 @@ footer p {
     padding: 2rem;
     text-align: center;
     transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .pricing-card:hover {
@@ -190,6 +197,22 @@ footer p {
 
 .pricing-card h3 {
     margin-top: 0;
+}
+
+.pricing-card ul {
+    text-align: left;
+    margin: 1.5rem 0;
+    padding-left: 1.5rem;
+    flex-grow: 1;
+}
+
+.pricing-card li {
+    margin-bottom: 0.5rem;
+}
+
+.pricing-card p {
+    color: #999;
+    margin-bottom: 1rem;
 }
 
 .price {
@@ -203,6 +226,26 @@ footer p {
     font-size: 1rem;
     color: #999;
     font-weight: 400;
+}
+
+.price-alt {
+    font-size: 1rem;
+    color: #999;
+    margin-bottom: 1rem;
+}
+
+.pricing-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.pricing-buttons .purchase-btn {
+    flex: 1;
+    margin: 0;
+}
+
+.pricing-card .purchase-btn {
+    margin: 0.5rem 0.25rem;
 }
 
 /* Success Messages */

@@ -26,17 +26,12 @@ function handlePurchaseClick(plan) {
 // Set up event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     // Add click handlers to all purchase buttons
-    const purchaseButtons = document.querySelectorAll('.purchase-btn');
+    const purchaseButtons = document.querySelectorAll('.purchase-btn[data-plan]');
     purchaseButtons.forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             const plan = this.getAttribute('data-plan');
-            
-            if (plan) {
-                handlePurchaseClick(plan);
-            } else {
-                console.error('No plan specified for purchase button');
-            }
+            handlePurchaseClick(plan);
         });
     });
 });
