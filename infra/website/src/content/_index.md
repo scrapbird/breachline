@@ -4,13 +4,11 @@ date: 2025-01-01T00:00:00Z
 draft: false
 ---
 
-# BreachLine
-
-<img src="/images/breachline-window.png" alt="BreachLine Application Window" style="width: 100%; max-width: 100%; height: auto;">
-
 A powerful tool for visualizing and analyzing time series data during cyber incident response investigations.
 
 BreachLine is built for speed and ease of use when investigating audit logs, security events, and other timestamped data. Handle massive datasets with confidence and uncover critical insights faster.
+
+<img src="/images/breachline-window.png" alt="BreachLine Application Window" style="width: 100%; max-width: 100%; height: auto;">
 
 ## Key Capabilities
 
