@@ -10,9 +10,25 @@ draft: false
 
 <div class="feature-card">
 
-## Large File Handling
+## Handle large files
 
-Load and analyze massive datasets up to 5-10 GB in size. Each row represents a timestamped event, making BreachLine perfect for processing extensive audit logs and security events during incident response investigations.
+Load and analyze large datasets with hundreds of thousands of rows. Perfect for fast analysis of audit logs and security events.
+
+</div>
+
+<div class="feature-card">
+
+## Advanced Query Language
+
+Powerful SPL-like filter syntax for real-time data filtering. Create complex queries using pipes to quickly isolate relevant events and identify patterns in your timeline data.
+
+- **Text Search**: Substring matching, quoted phrases, wildcards
+- **Field Operators**: `field=value`, `field!=value`, existence checks
+- **Boolean Logic**: `AND`, `OR`, and `NOT` operators
+- **Time Filters**: Relative times (`15m ago`) or absolute timestamps
+- **Column Projection**: `| columns colA, colB`
+- **Deduplication**: `| dedup colA, colB`
+- **Sort**: Supports sorting by multiple columns in any order `| sort colA, colB`
 
 </div>
 
@@ -22,7 +38,7 @@ Load and analyze massive datasets up to 5-10 GB in size. Each row represents a t
 
 - **CSV Files**: Standard comma-separated values
 - **XLSX Files**: Excel spreadsheets
-- **JSON Files**: With custom JPATH expressions to locate and ingest list data
+- **JSON Files**: Use custom JPATH expressions to locate and ingest list data
 
 </div>
 
@@ -30,22 +46,7 @@ Load and analyze massive datasets up to 5-10 GB in size. Each row represents a t
 
 ## Ingest Plugins
 
-BreachLine supports plugins to ingest data from various sources and formats used in security operations. Write custom plugins in any language to ingest data from any source or file type.
-
-</div>
-
-<div class="feature-card">
-
-## Advanced Query Language
-
-Powerful SPL-like filter syntax for real-time data filtering. Create complex queries to quickly isolate relevant events and identify patterns in your timeline data.
-
-- **Text Search**: Substring matching, quoted phrases, wildcards
-- **Field Operators**: `field=value`, `field!=value`, existence checks
-- **Boolean Logic**: `AND`, `OR`, and `NOT` operators
-- **Time Filters**: Relative times (`15m ago`) or absolute timestamps
-- **Column Projection**: `| columns colA, colB`
-- **Deduplication**: `| dedup colA, colB`
+Write custom plugins in any language to ingest data from any source or file type.
 
 </div>
 
@@ -62,9 +63,8 @@ Powerful SPL-like filter syntax for real-time data filtering. Create complex que
 
 ## Timeline Visualization
 
-- **Interactive Histograms**: View event counts across time buckets (1 hour, 5 minutes, etc.)
+- **Interactive Histograms**: View event counts and patterns over time
 - **Time Navigation**: Seek by time to quickly jump to specific periods
-- **Event Graphs**: Visual representation of activity patterns
 
 </div>
 
@@ -76,7 +76,7 @@ Powerful SPL-like filter syntax for real-time data filtering. Create complex que
 - Set separate display timezone for analysis
 - Normalize timestamps to a configurable time format
 
-Perfect for investigations spanning multiple geographic regions.
+Perfect for investigations spanning multiple geographic regions. Makes copy pasting row data into a report or email simple. No more timezone conversion headaches.
 
 </div>
 
@@ -87,6 +87,15 @@ Perfect for investigations spanning multiple geographic regions.
 - Save workspaces with annotations and notes
 - Collaborate on investigations by sharing annotated timelines
 - Export annotated data to combined timeline files
+
+</div>
+
+<div class="feature-card">
+
+## JSON Value Parsing
+
+- Parse JSON values from any column using custom JPATH expressions
+- Easily query and filter on parsed JSON values within a column using the advanced query language
 
 </div>
 
