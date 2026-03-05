@@ -35,6 +35,19 @@ func ParseTimestampMillis(s string, loc *time.Location) (int64, bool) {
 	if t, err := time.Parse(time.RFC3339Nano, ss); err == nil {
 		return t.UnixMilli(), true
 	}
+	// Try ISO 8601 with fractional seconds and numeric offset without colon (e.g. +0300)
+	if t, err := time.Parse("2006-01-02T15:04:05.000-0700", ss); err == nil {
+		return t.UnixMilli(), true
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05.00-0700", ss); err == nil {
+		return t.UnixMilli(), true
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05.0-0700", ss); err == nil {
+		return t.UnixMilli(), true
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05-0700", ss); err == nil {
+		return t.UnixMilli(), true
+	}
 	// Try space-separated with explicit Z or offset e.g. "2006-01-02 15:04:05Z" or with numeric offset
 	if t, err := time.Parse("2006-01-02 15:04:05Z07:00", ss); err == nil {
 		return t.UnixMilli(), true
@@ -244,6 +257,28 @@ func DetectAndCacheTimestampParser(s string, loc *time.Location) (*TimestampPars
 			FormatName:   "RFC3339Nano",
 			UsesLocation: false,
 		}, t.UnixMilli(), true
+	}
+
+	// Try ISO 8601 with fractional seconds and numeric offset without colon (e.g. +0300)
+	for _, fmt := range []string{
+		"2006-01-02T15:04:05.000-0700",
+		"2006-01-02T15:04:05.00-0700",
+		"2006-01-02T15:04:05.0-0700",
+		"2006-01-02T15:04:05-0700",
+	} {
+		fmtCopy := fmt
+		if t, err := time.Parse(fmtCopy, ss); err == nil {
+			return &TimestampParserInfo{
+				Parser: func(input string) (int64, bool) {
+					if t, err := time.Parse(fmtCopy, strings.TrimSpace(input)); err == nil {
+						return t.UnixMilli(), true
+					}
+					return 0, false
+				},
+				FormatName:   fmtCopy,
+				UsesLocation: false,
+			}, t.UnixMilli(), true
+		}
 	}
 
 	// Try space-separated with explicit Z or offset
