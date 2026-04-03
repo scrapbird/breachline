@@ -246,6 +246,19 @@ func (g *Grid) SelectedRange() (start, end int) {
 // HasData returns true if data has been loaded.
 func (g Grid) HasData() bool { return len(g.header) > 0 }
 
+// CellAt returns the column name and cell value at the given row and column.
+func (g Grid) CellAt(row, col int) (string, string) {
+	colName := ""
+	if col >= 0 && col < len(g.header) {
+		colName = g.header[col]
+	}
+	cellVal := ""
+	if row >= 0 && row < len(g.rows) && col >= 0 && col < len(g.rows[row]) {
+		cellVal = g.rows[row][col]
+	}
+	return colName, cellVal
+}
+
 func (g *Grid) ensureVisible() {
 	if g.cursorRow < g.scrollRow {
 		g.scrollRow = g.cursorRow

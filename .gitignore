@@ -6,7 +6,10 @@ venv
 *.pem
 *.lic
 breachline
-breachline-cli
+# CLI binary (not the source directory)
+/breachline-cli
+/application/breachline-cli
+application/dist/
 
 # Local .terraform directories
 **/.terraform/*
