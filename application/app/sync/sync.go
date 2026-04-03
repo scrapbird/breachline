@@ -40,6 +40,40 @@ type SyncService struct {
 	ctx             context.Context
 	client          *http.Client
 	refreshingToken bool // Prevents concurrent refresh attempts
+	headless        bool // Set to true in CLI mode to skip Wails runtime calls
+}
+
+// SetHeadless marks this service as running in CLI/headless mode.
+func (s *SyncService) SetHeadless(h bool) {
+	s.headless = h
+}
+
+// safeLogError logs an error, skipping Wails runtime calls in headless mode.
+func (s *SyncService) safeLogError(msg string) {
+	if !s.headless && s.ctx != nil {
+		s.safeLogError( msg)
+	}
+}
+
+// safeLogInfo logs info, skipping Wails runtime calls in headless mode.
+func (s *SyncService) safeLogInfo(msg string) {
+	if !s.headless && s.ctx != nil {
+		s.safeLogInfo( msg)
+	}
+}
+
+// safeLogDebug logs debug info, skipping Wails runtime calls in headless mode.
+func (s *SyncService) safeLogDebug(msg string) {
+	if !s.headless && s.ctx != nil {
+		s.safeLogDebug( msg)
+	}
+}
+
+// safeEmitEvent emits an event, skipping in headless mode.
+func (s *SyncService) safeEmitEvent(name string, data ...interface{}) {
+	if !s.headless && s.ctx != nil {
+		runtime.EventsEmit(s.ctx, name, data...)
+	}
 }
 
 // NewSyncService creates a new sync service
@@ -447,12 +481,12 @@ type RemoteWorkspace struct {
 func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 	// Add debug logging
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, "GetRemoteWorkspaces: Starting request")
+		s.safeLogDebug( "GetRemoteWorkspaces: Starting request")
 	}
 
 	if !s.IsLoggedIn() {
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, "GetRemoteWorkspaces: Not logged in to sync service")
+			s.safeLogError( "GetRemoteWorkspaces: Not logged in to sync service")
 		}
 		return nil, fmt.Errorf("not logged in to sync service")
 	}
@@ -460,7 +494,7 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 	currentSettings := settings.GetEffectiveSettings()
 	if currentSettings.SyncSessionToken == "" {
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, "GetRemoteWorkspaces: No valid session token")
+			s.safeLogError( "GetRemoteWorkspaces: No valid session token")
 		}
 		return nil, fmt.Errorf("no valid session token")
 	}
@@ -471,24 +505,24 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 		if tokenLength > 20 {
 			tokenLength = 20
 		}
-		runtime.LogDebug(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Using session token: %s... (length: %d)", currentSettings.SyncSessionToken[:tokenLength], len(currentSettings.SyncSessionToken)))
+		s.safeLogDebug( fmt.Sprintf("GetRemoteWorkspaces: Using session token: %s... (length: %d)", currentSettings.SyncSessionToken[:tokenLength], len(currentSettings.SyncSessionToken)))
 
 		// Check if we have a refresh token
 		if currentSettings.SyncRefreshToken != "" {
-			runtime.LogDebug(s.ctx, "GetRemoteWorkspaces: Refresh token is available")
+			s.safeLogDebug( "GetRemoteWorkspaces: Refresh token is available")
 		} else {
 			runtime.LogWarning(s.ctx, "GetRemoteWorkspaces: No refresh token available")
 		}
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Making request to %s/workspaces", BaseURL))
+		s.safeLogDebug( fmt.Sprintf("GetRemoteWorkspaces: Making request to %s/workspaces", BaseURL))
 	}
 
 	req, err := http.NewRequestWithContext(s.ctx, "GET", BaseURL+"/workspaces", nil)
 	if err != nil {
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Failed to create request: %v", err))
+			s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Failed to create request: %v", err))
 		}
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -499,41 +533,41 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 	resp, err := s.doRequestWithAuth(req)
 	if err != nil {
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Failed to send request: %v", err))
+			s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Failed to send request: %v", err))
 		}
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Received response with status %d", resp.StatusCode))
+		s.safeLogDebug( fmt.Sprintf("GetRemoteWorkspaces: Received response with status %d", resp.StatusCode))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Failed to read response: %v", err))
+			s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Failed to read response: %v", err))
 		}
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Response body: %s", string(body)))
+		s.safeLogDebug( fmt.Sprintf("GetRemoteWorkspaces: Response body: %s", string(body)))
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp api.ErrorResponse
 		if err := json.Unmarshal(body, &errResp); err != nil {
 			if s.ctx != nil {
-				runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Failed to parse error response (status %d): %v", resp.StatusCode, err))
-				runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Raw response body: %s", string(body)))
+				s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Failed to parse error response (status %d): %v", resp.StatusCode, err))
+				s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Raw response body: %s", string(body)))
 			}
 			return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
 		}
 
 		// Log the parsed error response structure for debugging
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Parsed error response - Code: '%s', Message: '%s'", errResp.Error.Code, errResp.Error.Message))
+			s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Parsed error response - Code: '%s', Message: '%s'", errResp.Error.Code, errResp.Error.Message))
 		}
 
 		// Handle empty error codes/messages
@@ -547,7 +581,7 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 		}
 
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: API error (status %d): %s: %s", resp.StatusCode, errorCode, errorMessage))
+			s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: API error (status %d): %s: %s", resp.StatusCode, errorCode, errorMessage))
 		}
 
 		// If we get a 403, attempt automatic token refresh
@@ -560,30 +594,30 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 				// Attempt to refresh tokens automatically
 				if refreshErr := s.RefreshTokens(); refreshErr != nil {
 					if s.ctx != nil {
-						runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Token refresh failed: %v", refreshErr))
-						runtime.LogInfo(s.ctx, "GetRemoteWorkspaces: Refresh token also expired - triggering re-authentication")
+						s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Token refresh failed: %v", refreshErr))
+						s.safeLogInfo( "GetRemoteWorkspaces: Refresh token also expired - triggering re-authentication")
 					}
 					// Clear expired tokens and trigger re-authentication
 					if clearErr := s.ClearExpiredTokens(); clearErr != nil {
 						if s.ctx != nil {
-							runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Failed to clear expired tokens: %v", clearErr))
+							s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Failed to clear expired tokens: %v", clearErr))
 						}
 					}
 				} else {
 					if s.ctx != nil {
-						runtime.LogInfo(s.ctx, "GetRemoteWorkspaces: Tokens refreshed successfully - retrying request")
+						s.safeLogInfo( "GetRemoteWorkspaces: Tokens refreshed successfully - retrying request")
 					}
 					// Retry the original request with refreshed tokens
 					return s.GetRemoteWorkspaces()
 				}
 			} else {
 				if s.ctx != nil {
-					runtime.LogInfo(s.ctx, "GetRemoteWorkspaces: No refresh token available - triggering re-authentication")
+					s.safeLogInfo( "GetRemoteWorkspaces: No refresh token available - triggering re-authentication")
 				}
 				// Clear any remaining tokens and trigger re-authentication
 				if clearErr := s.ClearExpiredTokens(); clearErr != nil {
 					if s.ctx != nil {
-						runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Failed to clear tokens: %v", clearErr))
+						s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Failed to clear tokens: %v", clearErr))
 					}
 				}
 			}
@@ -595,13 +629,13 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 	var result api.ListWorkspacesResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Failed to unmarshal response: %v", err))
+			s.safeLogError( fmt.Sprintf("GetRemoteWorkspaces: Failed to unmarshal response: %v", err))
 		}
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Successfully parsed %d workspaces", len(result.Workspaces)))
+		s.safeLogDebug( fmt.Sprintf("GetRemoteWorkspaces: Successfully parsed %d workspaces", len(result.Workspaces)))
 	}
 
 	// Convert api.Workspace to RemoteWorkspace
@@ -620,7 +654,7 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("GetRemoteWorkspaces: Returning %d remote workspaces", len(remoteWorkspaces)))
+		s.safeLogDebug( fmt.Sprintf("GetRemoteWorkspaces: Returning %d remote workspaces", len(remoteWorkspaces)))
 	}
 
 	return remoteWorkspaces, nil
@@ -629,7 +663,7 @@ func (s *SyncService) GetRemoteWorkspaces() ([]RemoteWorkspace, error) {
 // TestSyncConnection tests the sync API connection and authentication
 func (s *SyncService) TestSyncConnection() error {
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, "TestSyncConnection: Starting connection test")
+		s.safeLogDebug( "TestSyncConnection: Starting connection test")
 	}
 
 	if !s.IsLoggedIn() {
@@ -651,18 +685,18 @@ func (s *SyncService) TestSyncConnection() error {
 	req.Header.Set("Content-Type", "application/json")
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("TestSyncConnection: Making test request to %s", BaseURL+"/workspaces"))
+		s.safeLogDebug( fmt.Sprintf("TestSyncConnection: Making test request to %s", BaseURL+"/workspaces"))
 		tokenLength := len(currentSettings.SyncSessionToken)
 		if tokenLength > 20 {
 			tokenLength = 20
 		}
-		runtime.LogDebug(s.ctx, fmt.Sprintf("TestSyncConnection: Using token: %s...", currentSettings.SyncSessionToken[:tokenLength]))
+		s.safeLogDebug( fmt.Sprintf("TestSyncConnection: Using token: %s...", currentSettings.SyncSessionToken[:tokenLength]))
 	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
 		if s.ctx != nil {
-			runtime.LogError(s.ctx, fmt.Sprintf("TestSyncConnection: Request failed: %v", err))
+			s.safeLogError( fmt.Sprintf("TestSyncConnection: Request failed: %v", err))
 		}
 		return fmt.Errorf("connection test failed: %w", err)
 	}
@@ -674,8 +708,8 @@ func (s *SyncService) TestSyncConnection() error {
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("TestSyncConnection: Response status: %d", resp.StatusCode))
-		runtime.LogDebug(s.ctx, fmt.Sprintf("TestSyncConnection: Response body: %s", string(body)))
+		s.safeLogDebug( fmt.Sprintf("TestSyncConnection: Response status: %d", resp.StatusCode))
+		s.safeLogDebug( fmt.Sprintf("TestSyncConnection: Response body: %s", string(body)))
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -683,7 +717,7 @@ func (s *SyncService) TestSyncConnection() error {
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, "TestSyncConnection: Connection test successful")
+		s.safeLogDebug( "TestSyncConnection: Connection test successful")
 	}
 
 	return nil
@@ -692,7 +726,7 @@ func (s *SyncService) TestSyncConnection() error {
 // RefreshTokens refreshes the access and refresh tokens using the current refresh token
 func (s *SyncService) RefreshTokens() error {
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, "RefreshTokens: Starting token refresh")
+		s.safeLogDebug( "RefreshTokens: Starting token refresh")
 	}
 
 	currentSettings := settings.GetEffectiveSettings()
@@ -717,7 +751,7 @@ func (s *SyncService) RefreshTokens() error {
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, "RefreshTokens: Making refresh request to API")
+		s.safeLogDebug( "RefreshTokens: Making refresh request to API")
 	}
 
 	req, err := http.NewRequestWithContext(s.ctx, "POST", BaseURL+"/auth/refresh", strings.NewReader(string(reqBody)))
@@ -740,7 +774,7 @@ func (s *SyncService) RefreshTokens() error {
 	}
 
 	if s.ctx != nil {
-		runtime.LogDebug(s.ctx, fmt.Sprintf("RefreshTokens: Response status: %d", resp.StatusCode))
+		s.safeLogDebug( fmt.Sprintf("RefreshTokens: Response status: %d", resp.StatusCode))
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -766,7 +800,7 @@ func (s *SyncService) RefreshTokens() error {
 	}
 
 	if s.ctx != nil {
-		runtime.LogInfo(s.ctx, "RefreshTokens: Tokens refreshed successfully")
+		s.safeLogInfo( "RefreshTokens: Tokens refreshed successfully")
 	}
 
 	return nil
@@ -775,7 +809,7 @@ func (s *SyncService) RefreshTokens() error {
 // ClearExpiredTokens clears expired tokens and emits an event to trigger re-authentication
 func (s *SyncService) ClearExpiredTokens() error {
 	if s.ctx != nil {
-		runtime.LogInfo(s.ctx, "ClearExpiredTokens: Clearing expired tokens and triggering re-authentication")
+		s.safeLogInfo( "ClearExpiredTokens: Clearing expired tokens and triggering re-authentication")
 	}
 
 	// Clear the tokens from settings
@@ -786,8 +820,8 @@ func (s *SyncService) ClearExpiredTokens() error {
 
 	// Emit event to trigger re-authentication in the frontend
 	if s.ctx != nil {
-		runtime.EventsEmit(s.ctx, "sync:tokens_expired")
-		runtime.LogInfo(s.ctx, "ClearExpiredTokens: Emitted sync:tokens_expired event")
+		s.safeEmitEvent("sync:tokens_expired")
+		s.safeLogInfo( "ClearExpiredTokens: Emitted sync:tokens_expired event")
 	}
 
 	return nil

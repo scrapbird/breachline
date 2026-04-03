@@ -280,6 +280,9 @@ func (ls *LicenseService) ImportLicenseFile() (*LicenseOpenResult, error) {
 	}
 
 	// Open file dialog - prefer .lic files but allow any file type
+	if ls.app != nil && ls.app.IsHeadless() {
+		return nil, fmt.Errorf("file dialogs not supported in CLI mode")
+	}
 	filePath, err := runtime.OpenFileDialog(ls.ctx, runtime.OpenDialogOptions{
 		Title: "Open License File",
 		Filters: []runtime.FileFilter{

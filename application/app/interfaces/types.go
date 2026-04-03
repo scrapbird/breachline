@@ -294,4 +294,5 @@ type AppService interface {
 	GetReader(filePath string) (Reader, Closer, error)
 	DetectTimestampIndex(header []string) int
 	GetQueryCache() interface{} // Returns *cache.Cache but using interface{} to avoid import cycle
+	IsHeadless() bool           // Returns true in CLI mode (no Wails runtime)
 }

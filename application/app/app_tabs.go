@@ -272,6 +272,9 @@ func (a *App) OpenFileDialog() (string, error) {
 	// Join all patterns with semicolons
 	allPatterns := strings.Join(patterns, ";")
 
+	if a.IsHeadless() {
+		return "", fmt.Errorf("file dialogs not supported in CLI mode")
+	}
 	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Open Data File",
 		Filters: []runtime.FileFilter{
@@ -1079,7 +1082,7 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 		MaxFiles: maxFiles,
 	}, func(progress fileloader.DiscoveryProgress) {
 		// Emit progress event to frontend
-		runtime.EventsEmit(a.ctx, "directory:discovery:progress", map[string]interface{}{
+		a.EmitEvent("directory:discovery:progress", map[string]interface{}{
 			"filesFound":  progress.FilesFound,
 			"dirsScanned": progress.DirsScanned,
 			"currentPath": progress.CurrentPath,
@@ -1150,7 +1153,7 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 	}
 
 	// Emit completion event
-	runtime.EventsEmit(a.ctx, "directory:discovery:complete", map[string]interface{}{
+	a.EmitEvent("directory:discovery:complete", map[string]interface{}{
 		"filesLoaded": len(info.Files),
 		"totalSize":   info.TotalSize,
 	})

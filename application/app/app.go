@@ -52,6 +52,10 @@ type App struct {
 	// locate files cancellation support
 	locateCancelFunc context.CancelFunc
 	locateCancelMu   sync.Mutex
+
+	// logFunc is an optional override for the Log method.
+	// When set (e.g. by CLI mode), Log calls this instead of runtime.EventsEmit.
+	logFunc func(level, message string)
 }
 
 // NewApp creates a new App application struct
@@ -242,6 +246,9 @@ func (a *App) SavePNGFromDataURL(dataURL string, defaultName string) (bool, erro
 	}
 
 	// Open Save File dialog
+	if a.IsHeadless() {
+		return false, fmt.Errorf("save dialogs not supported in CLI mode")
+	}
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:           "Save Histogram Screenshot",
 		DefaultFilename: strings.TrimSpace(defaultName),
@@ -265,9 +272,39 @@ func (a *App) SavePNGFromDataURL(dataURL string, defaultName string) (bool, erro
 	return true, nil
 }
 
-// log emits a structured log event to the frontend console window
+// SetLogFunc sets an alternative logging function.
+// When set, Log() calls this instead of emitting a Wails event.
+// Used by the CLI build to avoid Wails runtime dependency.
+func (a *App) SetLogFunc(fn func(level, message string)) {
+	a.logFunc = fn
+}
+
+// IsHeadless returns true when the app is running without Wails (CLI mode).
+// In headless mode, runtime.EventsEmit must not be called.
+func (a *App) IsHeadless() bool {
+	return a.logFunc != nil
+}
+
+// EmitEvent is a safe wrapper around runtime.EventsEmit.
+// In CLI/headless mode it silently drops the event instead of panicking.
+func (a *App) EmitEvent(name string, data ...interface{}) {
+	if a == nil || a.ctx == nil || a.IsHeadless() {
+		return
+	}
+	runtime.EventsEmit(a.ctx, name, data...)
+}
+
+// Log emits a structured log event to the frontend console window.
+// If a logFunc override is set (CLI mode), it is used instead.
 func (a *App) Log(level, message string) {
-	if a == nil || a.ctx == nil {
+	if a == nil {
+		return
+	}
+	if a.logFunc != nil {
+		a.logFunc(level, message)
+		return
+	}
+	if a.ctx == nil {
 		return
 	}
 	runtime.EventsEmit(a.ctx, "log", map[string]any{
@@ -635,6 +672,9 @@ func (a *App) ValidatePluginPath(path string) (*plugin.PluginManifest, error) {
 // OpenPluginDialog opens a file dialog for selecting plugin manifest files
 // Returns the selected plugin.yml file path
 func (a *App) OpenPluginDialog() (string, error) {
+	if a.IsHeadless() {
+		return "", fmt.Errorf("file dialogs not supported in CLI mode")
+	}
 	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Select Plugin Manifest",
 		Filters: []runtime.FileFilter{
@@ -1240,13 +1280,9 @@ func (a *App) LocateWorkspaceFiles(selections []FileSelection) (*LocateWorkspace
 		// Check if context was cancelled
 		if ctx.Err() == context.Canceled {
 			a.Log("info", "[LOCATE_FILES] Operation cancelled by user")
-			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "locate:cancelled")
-			}
+			a.EmitEvent("locate:cancelled")
 		} else {
-			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "locate:complete")
-			}
+			a.EmitEvent("locate:complete")
 		}
 	}()
 
@@ -1287,24 +1323,20 @@ func (a *App) LocateWorkspaceFiles(selections []FileSelection) (*LocateWorkspace
 				matchedFiles = append(matchedFiles, *matched)
 
 				// Emit progress for single file match
-				if a.ctx != nil {
-					runtime.EventsEmit(a.ctx, "locate:progress", map[string]interface{}{
-						"filePath":     selection.Path,
-						"filesScanned": 1,
-						"matchCount":   len(matchedFiles),
-					})
-				}
+				a.EmitEvent("locate:progress", map[string]interface{}{
+					"filePath":     selection.Path,
+					"filesScanned": 1,
+					"matchCount":   len(matchedFiles),
+				})
 			} else {
 				a.Log("debug", fmt.Sprintf("[LOCATE_FILES] File did not match workspace: %s", selection.Path))
 
 				// Emit progress for single file no match
-				if a.ctx != nil {
-					runtime.EventsEmit(a.ctx, "locate:progress", map[string]interface{}{
-						"filePath":     selection.Path,
-						"filesScanned": 1,
-						"matchCount":   len(matchedFiles),
-					})
-				}
+				a.EmitEvent("locate:progress", map[string]interface{}{
+					"filePath":     selection.Path,
+					"filesScanned": 1,
+					"matchCount":   len(matchedFiles),
+				})
 			}
 		}
 	}
@@ -1374,13 +1406,11 @@ func (a *App) scanDirectoryForMatches(ctx context.Context, dirPath string, works
 					matchedFiles = append(matchedFiles, *dirMatched)
 
 					// Emit progress event for directory match
-					if a.ctx != nil {
-						runtime.EventsEmit(a.ctx, "locate:progress", map[string]interface{}{
-							"filePath":     path,
-							"filesScanned": filesScanned,
-							"matchCount":   len(matchedFiles),
-						})
-					}
+					a.EmitEvent("locate:progress", map[string]interface{}{
+						"filePath":     path,
+						"filesScanned": filesScanned,
+						"matchCount":   len(matchedFiles),
+					})
 					// Don't break - a directory might match multiple patterns
 				}
 			}
@@ -1397,13 +1427,11 @@ func (a *App) scanDirectoryForMatches(ctx context.Context, dirPath string, works
 			a.Log("debug", fmt.Sprintf("[LOCATE_FILES] Error processing file %s: %v", path, err))
 
 			// Emit progress even for errors
-			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "locate:progress", map[string]interface{}{
-					"filePath":     path,
-					"filesScanned": filesScanned,
-					"matchCount":   len(matchedFiles),
-				})
-			}
+			a.EmitEvent("locate:progress", map[string]interface{}{
+				"filePath":     path,
+				"filesScanned": filesScanned,
+				"matchCount":   len(matchedFiles),
+			})
 
 			return nil // Skip files with errors, don't fail the whole operation
 		}
@@ -1413,13 +1441,11 @@ func (a *App) scanDirectoryForMatches(ctx context.Context, dirPath string, works
 		}
 
 		// Emit progress event for this file
-		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "locate:progress", map[string]interface{}{
-				"filePath":     path,
-				"filesScanned": filesScanned,
-				"matchCount":   len(matchedFiles),
-			})
-		}
+		a.EmitEvent("locate:progress", map[string]interface{}{
+			"filePath":     path,
+			"filesScanned": filesScanned,
+			"matchCount":   len(matchedFiles),
+		})
 
 		return nil
 	})
@@ -1500,6 +1526,9 @@ func (a *App) processFileForMatch(filePath string, workspaceFileHashes map[strin
 func (a *App) CreateLocalWorkspace() error {
 	if a.ctx == nil {
 		return fmt.Errorf("app context not initialized")
+	}
+	if a.IsHeadless() {
+		return fmt.Errorf("save dialogs not supported in CLI mode")
 	}
 
 	// Open save file dialog with .breachline extension

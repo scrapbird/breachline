@@ -331,6 +331,13 @@ func (r *CLIRuntimeAdapter) SetTitle(title string) {
 // InitBackend initialises the backend services without Wails.
 func InitBackend() (*app.App, *settings.SettingsService, *app.LicenseService, *app.WorkspaceManager) {
 	appInstance := app.NewApp()
+
+	// Set CLI log function BEFORE Startup to avoid Wails runtime.EventsEmit panics.
+	// The Wails runtime rejects context.Background() - this redirects all logging to stderr.
+	appInstance.SetLogFunc(func(level, message string) {
+		log.Printf("[%s] %s", level, message)
+	})
+
 	settingsService := settings.NewSettingsService()
 	settingsService.SetCacheManager(appInstance)
 	licenseService := app.NewLicenseService()
