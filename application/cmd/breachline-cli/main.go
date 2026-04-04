@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -66,10 +67,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set up logging to stderr so it doesn't interfere with the TUI
-	log.SetOutput(os.Stderr)
-	log.SetFlags(log.Ltime | log.Lmsgprefix)
-	log.SetPrefix("[breachline] ")
+	// Discard log output - backend logs are routed to the Console view via
+	// tea.Program.Send instead of writing to stderr (which corrupts the TUI).
+	log.SetOutput(io.Discard)
 
 	// Initialise backend services
 	appInstance, settingsService, licenseService, workspaceService := adapters.InitBackend()
@@ -94,6 +94,12 @@ func main() {
 	model := tui.NewApp(backend, opts)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	backend.SetProgram(p)
+
+	// Now that the program exists, route backend logs to the Console view
+	// instead of discarding them.
+	appInstance.SetLogFunc(func(level, message string) {
+		p.Send(adapters.LogMsg{Level: level, Message: message})
+	})
 
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

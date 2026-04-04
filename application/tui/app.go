@@ -208,6 +208,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case adapters.BackendEvent:
 		a.console.AddEntry("info", fmt.Sprintf("[event] %s", msg.Name))
 
+	case adapters.LogMsg:
+		a.console.AddEntry(msg.Level, msg.Message)
+
 	case tea.KeyMsg:
 		return a.handleKey(msg)
 	}
@@ -421,7 +424,11 @@ func (a App) handleVisualMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.mode = T.ModeNormal
 		a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: a.mode})
 	case key.Matches(msg, a.keys.Yank):
-		return a, a.yankSelection()
+		cmd := a.yankSelection()
+		a.grid.ClearSelection()
+		a.mode = T.ModeNormal
+		a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: T.ModeNormal})
+		return a, cmd
 	case key.Matches(msg, a.keys.Annotate):
 		return a, a.annotationDlg.Show("", "grey")
 	}
@@ -693,9 +700,6 @@ func (a App) yankSelection() tea.Cmd {
 		return nil
 	}
 	start, end := a.grid.SelectedRange()
-	a.grid.ClearSelection()
-	a.mode = T.ModeNormal
-	a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: T.ModeNormal})
 	tab := a.tabs[a.activeTab]
 	return copySelectionCmd(a.backend, []app.RangeSpec{{Start: start, End: end}}, tab.headers, tab.query, "")
 }

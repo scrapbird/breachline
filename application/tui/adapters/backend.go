@@ -366,6 +366,12 @@ type BackendEvent struct {
 	Data []interface{}
 }
 
+// LogMsg is a tea.Msg that delivers a backend log entry to the Console view.
+type LogMsg struct {
+	Level   string
+	Message string
+}
+
 // readFileContent reads a file's content as a string.
 func readFileContent(path string) (string, error) {
 	b, err := os.ReadFile(path)
