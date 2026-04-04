@@ -300,6 +300,7 @@ type Theme struct {
 	GridRow      lipgloss.Style
 	GridRowAlt   lipgloss.Style
 	GridSelected lipgloss.Style
+	GridCursor   lipgloss.Style
 	GridCell     lipgloss.Style
 	GridBorder   lipgloss.Style
 	Console      lipgloss.Style
@@ -367,6 +368,7 @@ func DefaultTheme() Theme {
 		GridRow:     lipgloss.NewStyle().Foreground(fg).Padding(0, 1),
 		GridRowAlt:  lipgloss.NewStyle().Background(bgDark).Foreground(fg).Padding(0, 1),
 		GridSelected: lipgloss.NewStyle().Background(lipgloss.Color("#2D3A50")).Foreground(fg).Padding(0, 1),
+		GridCursor:   lipgloss.NewStyle().Background(primary).Foreground(bgDark).Bold(true).Padding(0, 1),
 		GridCell:    lipgloss.NewStyle().Foreground(fg).Padding(0, 1),
 		GridBorder:  lipgloss.NewStyle().Foreground(muted),
 		Console:     lipgloss.NewStyle().Background(bgDark).Foreground(fgDim).Padding(0, 1),

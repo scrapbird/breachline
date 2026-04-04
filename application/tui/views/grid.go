@@ -349,7 +349,12 @@ func (g Grid) renderRow(row []string, rowIdx int, isHeader bool) string {
 	return b.String()
 }
 
-func (g Grid) cellStyle(rowIdx, _ int) lipgloss.Style {
+func (g Grid) cellStyle(rowIdx, colIdx int) lipgloss.Style {
+	// Active cursor cell gets a distinct highlight
+	if rowIdx == g.cursorRow && colIdx == g.cursorCol && !g.selecting {
+		return g.theme.GridCursor
+	}
+
 	if g.selecting {
 		start, end := g.SelectedRange()
 		if rowIdx >= start && rowIdx <= end {
