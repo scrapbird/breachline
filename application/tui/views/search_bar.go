@@ -36,6 +36,9 @@ const (
 func NewSearchBar(theme T.Theme) SearchBar {
 	ti := textinput.New()
 	ti.Prompt = "/"
+	ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
+	ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Fg)
+	ti.Cursor.Style = lipgloss.NewStyle().Foreground(theme.Accent)
 	ti.CharLimit = 512
 	ti.Width = 80
 	return SearchBar{
@@ -60,6 +63,9 @@ func (s *SearchBar) Show(mode SearchMode) tea.Cmd {
 	} else {
 		s.input.Prompt = "/"
 	}
+	s.input.PromptStyle = lipgloss.NewStyle().Foreground(s.theme.Primary).Bold(true)
+	s.input.TextStyle = lipgloss.NewStyle().Foreground(s.theme.Fg)
+	s.input.Cursor.Style = lipgloss.NewStyle().Foreground(s.theme.Accent)
 	s.input.SetValue("")
 	s.input.Focus()
 	return textinput.Blink
