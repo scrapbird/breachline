@@ -220,7 +220,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Escape always returns to normal mode
 	if key.Matches(msg, a.keys.Escape) {
-		if a.searchBar.Visible() {
+		wasSearchVisible := a.searchBar.Visible()
+		if wasSearchVisible {
 			a.searchBar.Hide()
 		}
 		a.mode = T.ModeNormal
@@ -228,6 +229,9 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.focus = focusGrid
 		a.grid.ClearSelection()
 		a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: T.ModeNormal})
+		if wasSearchVisible {
+			a.propagateResize()
+		}
 		return a, nil
 	}
 
@@ -263,6 +267,7 @@ func (a App) handleSearchBarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.searchBar.Hide()
 		a.mode = T.ModeNormal
 		a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: T.ModeNormal})
+		a.propagateResize()
 		if len(a.tabs) > 0 {
 			a.tabs[a.activeTab].query = val
 			return a, loadRowsCmd(a.backend, a.tabs[a.activeTab].id, val, 0, defaultPageSize)
@@ -340,11 +345,15 @@ func (a App) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, a.keys.Search):
 		a.mode = T.ModeInsert
 		a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: a.mode})
-		return a, a.searchBar.Show(views.SearchModeSearch)
+		cmd := a.searchBar.Show(views.SearchModeSearch)
+		a.propagateResize()
+		return a, cmd
 	case key.Matches(msg, a.keys.Command):
 		a.mode = T.ModeCommand
 		a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: a.mode})
-		return a, a.searchBar.Show(views.SearchModeCommand)
+		cmd := a.searchBar.Show(views.SearchModeCommand)
+		a.propagateResize()
+		return a, cmd
 
 	// Cell viewer
 	case key.Matches(msg, a.keys.Enter):
@@ -468,6 +477,7 @@ func (a App) executeCommand(cmdStr string) (tea.Model, tea.Cmd) {
 	a.searchBar.Hide()
 	a.mode = T.ModeNormal
 	a.statusBar, _ = a.statusBar.Update(T.ModeChangedMsg{Mode: T.ModeNormal})
+	a.propagateResize()
 
 	parts := strings.Fields(cmdStr)
 	if len(parts) == 0 {
