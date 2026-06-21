@@ -78,8 +78,31 @@ func (b *Backend) SetWorkspace(wm *app.WorkspaceManager) {
 }
 
 // SetProgram sets the Bubble Tea program reference for sending messages.
+// It also registers the histogram-ready callback so async histogram results
+// are delivered to the TUI program in headless/CLI mode.
 func (b *Backend) SetProgram(p *tea.Program) {
 	b.program = p
+	b.app.SetHistogramReadyFunc(func(event interface{}) {
+		if evt, ok := event.(*histogram.HistogramReadyEvent); ok && p != nil {
+			if len(evt.Buckets) == 0 {
+				return
+			}
+			var bucketMs int64
+			if len(evt.Buckets) > 1 {
+				bucketMs = evt.Buckets[1].Start - evt.Buckets[0].Start
+			}
+			viewBuckets := make([]HistogramBucket, len(evt.Buckets))
+			for i, bkt := range evt.Buckets {
+				viewBuckets[i] = HistogramBucket{
+					TabID:     evt.TabID,
+					StartTime: bkt.Start,
+					EndTime:   bkt.Start + bucketMs,
+					Count:     bkt.Count,
+				}
+			}
+			p.Send(HistogramReadyMsg{TabID: evt.TabID, Buckets: viewBuckets})
+		}
+	})
 }
 
 // --- File Operations ---
@@ -370,6 +393,21 @@ type BackendEvent struct {
 type LogMsg struct {
 	Level   string
 	Message string
+}
+
+// HistogramBucket is a single time bucket delivered to the TUI histogram view.
+type HistogramBucket struct {
+	TabID     string
+	StartTime int64
+	EndTime   int64
+	Count     int
+}
+
+// HistogramReadyMsg is sent to the Tea program when async histogram generation
+// completes in headless/CLI mode (replaces the dropped EmitEvent path).
+type HistogramReadyMsg struct {
+	TabID   string
+	Buckets []HistogramBucket
 }
 
 // readFileContent reads a file's content as a string.

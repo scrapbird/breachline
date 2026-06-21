@@ -174,6 +174,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.grid, _ = a.grid.Update(msg)
 		a.statusBar, _ = a.statusBar.Update(msg)
 
+	case adapters.HistogramReadyMsg:
+		viewBuckets := make([]views.HistogramBucket, len(msg.Buckets))
+		for i, b := range msg.Buckets {
+			viewBuckets[i] = views.HistogramBucket{
+				StartTime: b.StartTime,
+				EndTime:   b.EndTime,
+				Count:     b.Count,
+			}
+		}
+		a.histogram.SetBuckets(viewBuckets)
+
 	case T.RowsErrorMsg:
 		a.statusBar.SetMessage(fmt.Sprintf("Query error: %v", msg.Err), "error")
 

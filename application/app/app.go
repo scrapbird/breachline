@@ -56,6 +56,10 @@ type App struct {
 	// logFunc is an optional override for the Log method.
 	// When set (e.g. by CLI mode), Log calls this instead of runtime.EventsEmit.
 	logFunc func(level, message string)
+
+	// histogramReadyFunc is called in headless/CLI mode when a histogram is ready.
+	// It replaces the EmitEvent("histogram:ready") path that is dropped in headless mode.
+	histogramReadyFunc func(event interface{})
 }
 
 // NewApp creates a new App application struct
@@ -277,6 +281,12 @@ func (a *App) SavePNGFromDataURL(dataURL string, defaultName string) (bool, erro
 // Used by the CLI build to avoid Wails runtime dependency.
 func (a *App) SetLogFunc(fn func(level, message string)) {
 	a.logFunc = fn
+}
+
+// SetHistogramReadyFunc sets a callback invoked (in headless/CLI mode) when
+// a histogram finishes generating. The argument is a *histogram.HistogramReadyEvent.
+func (a *App) SetHistogramReadyFunc(fn func(event interface{})) {
+	a.histogramReadyFunc = fn
 }
 
 // IsHeadless returns true when the app is running without Wails (CLI mode).

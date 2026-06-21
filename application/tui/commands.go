@@ -5,7 +5,6 @@ import (
 	"breachline/app/interfaces"
 	"breachline/tui/adapters"
 	T "breachline/tui/types"
-	"breachline/tui/views"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -34,7 +33,7 @@ func loadRowsCmd(backend *adapters.Backend, tabID string, query string, startRow
 		if err != nil {
 			return T.RowsErrorMsg{TabID: tabID, Err: err}
 		}
-		msg := T.RowsLoadedMsg{
+		rowsMsg := T.RowsLoadedMsg{
 			TabID:            tabID,
 			Header:           page.Header,
 			Rows:             page.Rows,
@@ -44,7 +43,29 @@ func loadRowsCmd(backend *adapters.Backend, tabID string, query string, startRow
 			Annotations:      page.Annotations,
 			AnnotationColors: page.AnnotationColors,
 		}
-		return msg
+		// Also carry histogram buckets if present (synchronous path — async path
+		// uses the histogramReadyFunc callback registered on SetProgram).
+		if len(page.HistogramBuckets) > 0 {
+			var bucketMs int64
+			if len(page.HistogramBuckets) > 1 {
+				bucketMs = page.HistogramBuckets[1].Start - page.HistogramBuckets[0].Start
+			}
+			buckets := make([]adapters.HistogramBucket, len(page.HistogramBuckets))
+			for i, b := range page.HistogramBuckets {
+				buckets[i] = adapters.HistogramBucket{
+					TabID:     tabID,
+					StartTime: b.Start,
+					EndTime:   b.Start + bucketMs,
+					Count:     b.Count,
+				}
+			}
+			histMsg := adapters.HistogramReadyMsg{TabID: tabID, Buckets: buckets}
+			return tea.BatchMsg{
+				func() tea.Msg { return rowsMsg },
+				func() tea.Msg { return histMsg },
+			}
+		}
+		return rowsMsg
 	}
 }
 
@@ -65,11 +86,6 @@ func searchCmd(backend *adapters.Backend, tabID, term string, isRegex bool, quer
 type searchResultMsg struct {
 	totalCount int
 	err        error
-}
-
-// histogramDataMsg carries histogram data extracted from a rows load.
-type histogramDataMsg struct {
-	buckets []views.HistogramBucket
 }
 
 // annotateCmd adds annotations to selected rows.
