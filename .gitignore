@@ -6,6 +6,10 @@ venv
 *.pem
 *.lic
 breachline
+# CLI binary (not the source directory)
+/breachline-cli
+/application/breachline-cli
+application/dist/
 
 # Local .terraform directories
 **/.terraform/*
@@ -36,3 +40,6 @@ terraform.rc
 .terraform.lock.hcl
 
 *.zip
+
+# Instance-specific settings file generated at runtime
+application/breachline.yml

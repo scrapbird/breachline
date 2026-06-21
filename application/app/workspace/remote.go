@@ -869,7 +869,7 @@ func (rws *RemoteWorkspaceService) AddAnnotations(fileHash string, opts interfac
 	rws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event to notify frontend
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -1148,7 +1148,7 @@ func (rws *RemoteWorkspaceService) AddAnnotationsWithRows(fileHash string, opts 
 	rws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event to notify frontend
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -1521,7 +1521,7 @@ func (rws *RemoteWorkspaceService) DeleteRowAnnotations(fileHash string, opts in
 	rws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event to notify frontend
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -1687,7 +1687,7 @@ func (rws *RemoteWorkspaceService) DeleteRowAnnotationsWithRows(fileHash string,
 	rws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -1917,7 +1917,7 @@ func (rws *RemoteWorkspaceService) AddFileToWorkspace(fileHash string, opts inte
 	rws.workspaceMu.Unlock()
 
 	// Emit workspace updated event to notify frontend
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -1966,7 +1966,7 @@ func (rws *RemoteWorkspaceService) UpdateFileDescription(fileHash string, opts i
 	rws.workspaceMu.Unlock()
 
 	// Emit workspace updated event to notify frontend
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -2027,7 +2027,7 @@ func (rws *RemoteWorkspaceService) RemoveFileFromWorkspace(fileHash string, opts
 	rws.workspaceMu.Unlock()
 
 	// Emit workspace updated event to notify frontend
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -2065,6 +2065,9 @@ func (rws *RemoteWorkspaceService) ExportWorkspaceTimeline() error {
 	}
 
 	// Open save file dialog
+	if rws.app.IsHeadless() {
+		return fmt.Errorf("save dialogs not supported in CLI mode")
+	}
 	outputPath, err := runtime.SaveFileDialog(rws.ctx, runtime.SaveDialogOptions{
 		Title:           "Export Workspace Timeline",
 		DefaultFilename: "timeline_export.csv",
@@ -2385,7 +2388,9 @@ func (rws *RemoteWorkspaceService) updateWindowTitle() {
 		title = fmt.Sprintf("BreachLine: %s", workspaceName)
 	}
 
-	runtime.WindowSetTitle(rws.ctx, title)
+	if !rws.app.IsHeadless() {
+		runtime.WindowSetTitle(rws.ctx, title)
+	}
 }
 
 // startPeriodicSync starts the background sync process
@@ -2559,7 +2564,7 @@ func (rws *RemoteWorkspaceService) performSync() error {
 	}
 
 	// Emit workspace updated event to refresh UI
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 
@@ -2792,7 +2797,7 @@ func (rws *RemoteWorkspaceService) DeleteAnnotationByID(annotationID string) err
 	rws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event
-	if rws.ctx != nil {
+	if rws.ctx != nil && !rws.app.IsHeadless() {
 		runtime.EventsEmit(rws.ctx, "workspace:updated")
 	}
 

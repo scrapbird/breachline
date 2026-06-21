@@ -120,6 +120,9 @@ func (lws *LocalWorkspaceService) ChooseAndOpenWorkspace() error {
 	}
 
 	// Open file dialog
+	if lws.app.IsHeadless() {
+		return fmt.Errorf("file dialogs not supported in CLI mode")
+	}
 	filePath, err := runtime.OpenFileDialog(lws.ctx, runtime.OpenDialogOptions{
 		Title: "Open Workspace File",
 		Filters: []runtime.FileFilter{
@@ -236,7 +239,9 @@ func (lws *LocalWorkspaceService) updateWindowTitle() {
 		title = fmt.Sprintf("BreachLine: %s", filename)
 	}
 
-	runtime.WindowSetTitle(lws.ctx, title)
+	if !lws.app.IsHeadless() {
+		runtime.WindowSetTitle(lws.ctx, title)
+	}
 }
 
 // loadWorkspaceFile reads and parses a workspace file
@@ -423,7 +428,7 @@ func (lws *LocalWorkspaceService) AddFileToWorkspace(fileHash string, opts inter
 	}
 
 	// Emit workspace updated event to notify frontend
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
@@ -468,7 +473,7 @@ func (lws *LocalWorkspaceService) UpdateFileDescription(fileHash string, opts in
 	}
 
 	// Emit workspace updated event to notify frontend
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
@@ -509,7 +514,7 @@ func (lws *LocalWorkspaceService) RemoveFileFromWorkspace(fileHash string, opts 
 	}
 
 	// Emit workspace updated event to notify frontend
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
@@ -701,7 +706,7 @@ func (lws *LocalWorkspaceService) AddAnnotations(fileHash string, opts interface
 	lws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event to notify frontend
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
@@ -823,7 +828,7 @@ func (lws *LocalWorkspaceService) AddAnnotationsWithRows(fileHash string, opts i
 	lws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event to notify frontend
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
@@ -1205,7 +1210,7 @@ func (lws *LocalWorkspaceService) DeleteRowAnnotations(fileHash string, opts int
 	lws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event to notify frontend
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
@@ -1310,7 +1315,7 @@ func (lws *LocalWorkspaceService) DeleteRowAnnotationsWithRows(fileHash string, 
 	lws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event to notify frontend
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
@@ -1350,6 +1355,9 @@ func (lws *LocalWorkspaceService) ExportWorkspaceTimeline() error {
 	}
 
 	// Open save file dialog
+	if lws.app.IsHeadless() {
+		return fmt.Errorf("save dialogs not supported in CLI mode")
+	}
 	outputPath, err := runtime.SaveFileDialog(lws.ctx, runtime.SaveDialogOptions{
 		Title:           "Export Workspace Timeline",
 		DefaultFilename: "timeline_export.csv",
@@ -1723,7 +1731,7 @@ func (lws *LocalWorkspaceService) DeleteAnnotationByID(annotationID string) erro
 	lws.invalidateAnnotationCaches()
 
 	// Emit workspace updated event
-	if lws.ctx != nil {
+	if lws.ctx != nil && !lws.app.IsHeadless() {
 		runtime.EventsEmit(lws.ctx, "workspace:updated")
 	}
 
