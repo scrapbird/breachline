@@ -691,7 +691,18 @@ footer p {
     }
 
     .hero-cta {
+        flex-wrap: nowrap;
+        gap: 0.75rem;
         justify-content: flex-start;
+    }
+
+    .hero-cta .purchase-btn,
+    .hero-cta .btn-secondary {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0.85rem 0.75rem;
+        font-size: 1rem;
+        text-align: center;
     }
 
     article, .home {
