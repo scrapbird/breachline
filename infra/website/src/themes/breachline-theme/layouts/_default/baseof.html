@@ -12,13 +12,19 @@
     <!-- Stripe.js -->
     <script src="https://js.stripe.com/v3/"></script>
     <script src="{{ "js/stripe-checkout.js" | relURL }}" defer></script>
+    <script src="{{ "js/nav.js" | relURL }}" defer></script>
 </head>
 <body>
     <header>
         <nav>
             <div class="container">
                 <a href="/" class="logo"><img src="{{ "images/logo-universal.png" | relURL }}" alt="BreachLine Logo" class="logo-img">{{ .Site.Title }}</a>
-                <ul class="nav-menu">
+                <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-menu">
+                    <span class="nav-toggle-bar"></span>
+                    <span class="nav-toggle-bar"></span>
+                    <span class="nav-toggle-bar"></span>
+                </button>
+                <ul class="nav-menu" id="nav-menu">
                     {{ $rel := .RelPermalink }}
                     {{ range .Site.Menus.main }}
                     {{ $u := .URL }}

@@ -67,6 +67,42 @@ nav .container {
     width: auto;
 }
 
+/* Hamburger toggle — hidden on desktop, shown at mobile widths */
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.nav-toggle-bar {
+    display: block;
+    width: 26px;
+    height: 2px;
+    margin: 0 auto;
+    background: #eee;
+    border-radius: 2px;
+    transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+.nav-toggle.open .nav-toggle-bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nav-toggle.open .nav-toggle-bar:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle.open .nav-toggle-bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
 .nav-menu {
     display: flex;
     align-items: center;
@@ -613,14 +649,31 @@ footer p {
 /* Responsive Design */
 @media (max-width: 768px) {
     nav .container {
-        flex-direction: column;
+        flex-wrap: wrap;
         gap: 1rem;
     }
 
+    .nav-toggle {
+        display: flex;
+    }
+
     .nav-menu {
+        display: none;
+        order: 3;
+        width: 100%;
         flex-direction: column;
-        gap: 0.5rem;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0 0.25rem 0;
         text-align: center;
+    }
+
+    .nav-menu.open {
+        display: flex;
+    }
+
+    .nav-menu a[href="/purchase/"] {
+        display: inline-block;
     }
 
     .hero {
