@@ -30,8 +30,8 @@ locals {
           ]
         },
         {
-          effect = "Allow"
-          actions = ["secretsmanager:GetSecretValue"]
+          effect    = "Allow"
+          actions   = ["secretsmanager:GetSecretValue"]
           resources = [aws_secretsmanager_secret.license_public_key.arn]
         },
         {
@@ -76,7 +76,7 @@ locals {
           ]
         },
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["secretsmanager:GetSecretValue"]
           resources = [
             aws_secretsmanager_secret.license_public_key.arn,
@@ -104,7 +104,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["secretsmanager:GetSecretValue"]
           resources = [
             aws_secretsmanager_secret.license_public_key.arn,
@@ -139,7 +139,7 @@ locals {
         }
       ]
     }
-    
+
     # Workspace functions
     "workspace-create" = {
       description = "Create new workspaces (enforces per-user workspace limit)"
@@ -147,7 +147,7 @@ locals {
       environment = {
         WORKSPACES_TABLE         = aws_dynamodb_table.workspaces.name
         USER_SUBSCRIPTIONS_TABLE = aws_dynamodb_table.user_subscriptions.name
-        RATE_LIMITS_TABLE       = aws_dynamodb_table.rate_limits.name
+        RATE_LIMITS_TABLE        = aws_dynamodb_table.rate_limits.name
       }
       iam_policy_statements = [
         {
@@ -216,7 +216,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -326,7 +326,7 @@ locals {
         }
       ]
     }
-    
+
     # Annotation functions
     "annotation-list" = {
       description = "List annotations with filters"
@@ -372,7 +372,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -406,7 +406,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -434,7 +434,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -462,7 +462,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem", "dynamodb:DeleteItem", "dynamodb:UpdateItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -519,7 +519,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -553,7 +553,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -582,7 +582,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:PutItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -611,7 +611,7 @@ locals {
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
+          effect  = "Allow"
           actions = ["dynamodb:GetItem", "dynamodb:DeleteItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:PutItem"]
           resources = [
             aws_dynamodb_table.workspaces.arn,
@@ -759,15 +759,15 @@ locals {
       description = "Store file location for Breachline instance"
       timeout     = var.lambda_timeout
       environment = {
-        WORKSPACES_TABLE         = aws_dynamodb_table.workspaces.name
-        ANNOTATIONS_TABLE        = aws_dynamodb_table.annotations.name
-        FILES_TABLE              = aws_dynamodb_table.workspace_files.name
-        AUDIT_TABLE              = aws_dynamodb_table.audit.name
-        SUBSCRIPTIONS_TABLE      = aws_dynamodb_table.user_subscriptions.name
-        MEMBERS_TABLE            = aws_dynamodb_table.workspace_members.name
-        PINS_TABLE               = aws_dynamodb_table.pins.name
-        FILE_LOCATIONS_TABLE     = aws_dynamodb_table.workspace_file_locations.name
-        RATE_LIMITS_TABLE        = aws_dynamodb_table.rate_limits.name
+        WORKSPACES_TABLE     = aws_dynamodb_table.workspaces.name
+        ANNOTATIONS_TABLE    = aws_dynamodb_table.annotations.name
+        FILES_TABLE          = aws_dynamodb_table.workspace_files.name
+        AUDIT_TABLE          = aws_dynamodb_table.audit.name
+        SUBSCRIPTIONS_TABLE  = aws_dynamodb_table.user_subscriptions.name
+        MEMBERS_TABLE        = aws_dynamodb_table.workspace_members.name
+        PINS_TABLE           = aws_dynamodb_table.pins.name
+        FILE_LOCATIONS_TABLE = aws_dynamodb_table.workspace_file_locations.name
+        RATE_LIMITS_TABLE    = aws_dynamodb_table.rate_limits.name
       }
       iam_policy_statements = [
         {
@@ -792,20 +792,20 @@ locals {
       description = "Get file location for Breachline instance"
       timeout     = var.lambda_timeout
       environment = {
-        WORKSPACES_TABLE         = aws_dynamodb_table.workspaces.name
-        ANNOTATIONS_TABLE        = aws_dynamodb_table.annotations.name
-        FILES_TABLE              = aws_dynamodb_table.workspace_files.name
-        AUDIT_TABLE              = aws_dynamodb_table.audit.name
-        SUBSCRIPTIONS_TABLE      = aws_dynamodb_table.user_subscriptions.name
-        MEMBERS_TABLE            = aws_dynamodb_table.workspace_members.name
-        PINS_TABLE               = aws_dynamodb_table.pins.name
-        FILE_LOCATIONS_TABLE     = aws_dynamodb_table.workspace_file_locations.name
-        RATE_LIMITS_TABLE        = aws_dynamodb_table.rate_limits.name
+        WORKSPACES_TABLE     = aws_dynamodb_table.workspaces.name
+        ANNOTATIONS_TABLE    = aws_dynamodb_table.annotations.name
+        FILES_TABLE          = aws_dynamodb_table.workspace_files.name
+        AUDIT_TABLE          = aws_dynamodb_table.audit.name
+        SUBSCRIPTIONS_TABLE  = aws_dynamodb_table.user_subscriptions.name
+        MEMBERS_TABLE        = aws_dynamodb_table.workspace_members.name
+        PINS_TABLE           = aws_dynamodb_table.pins.name
+        FILE_LOCATIONS_TABLE = aws_dynamodb_table.workspace_file_locations.name
+        RATE_LIMITS_TABLE    = aws_dynamodb_table.rate_limits.name
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
-          actions = ["dynamodb:GetItem"]
+          effect    = "Allow"
+          actions   = ["dynamodb:GetItem"]
           resources = [aws_dynamodb_table.workspace_file_locations.arn]
         },
         {
@@ -822,20 +822,20 @@ locals {
       description = "List all file locations for Breachline instance"
       timeout     = var.lambda_timeout
       environment = {
-        WORKSPACES_TABLE         = aws_dynamodb_table.workspaces.name
-        ANNOTATIONS_TABLE        = aws_dynamodb_table.annotations.name
-        FILES_TABLE              = aws_dynamodb_table.workspace_files.name
-        AUDIT_TABLE              = aws_dynamodb_table.audit.name
-        SUBSCRIPTIONS_TABLE      = aws_dynamodb_table.user_subscriptions.name
-        MEMBERS_TABLE            = aws_dynamodb_table.workspace_members.name
-        PINS_TABLE               = aws_dynamodb_table.pins.name
-        FILE_LOCATIONS_TABLE     = aws_dynamodb_table.workspace_file_locations.name
-        RATE_LIMITS_TABLE        = aws_dynamodb_table.rate_limits.name
+        WORKSPACES_TABLE     = aws_dynamodb_table.workspaces.name
+        ANNOTATIONS_TABLE    = aws_dynamodb_table.annotations.name
+        FILES_TABLE          = aws_dynamodb_table.workspace_files.name
+        AUDIT_TABLE          = aws_dynamodb_table.audit.name
+        SUBSCRIPTIONS_TABLE  = aws_dynamodb_table.user_subscriptions.name
+        MEMBERS_TABLE        = aws_dynamodb_table.workspace_members.name
+        PINS_TABLE           = aws_dynamodb_table.pins.name
+        FILE_LOCATIONS_TABLE = aws_dynamodb_table.workspace_file_locations.name
+        RATE_LIMITS_TABLE    = aws_dynamodb_table.rate_limits.name
       }
       iam_policy_statements = [
         {
-          effect = "Allow"
-          actions = ["dynamodb:Query"]
+          effect    = "Allow"
+          actions   = ["dynamodb:Query"]
           resources = [aws_dynamodb_table.workspace_file_locations.arn]
         },
         {
@@ -855,7 +855,7 @@ locals {
 resource "aws_iam_role" "lambda_function_roles" {
   for_each = local.lambda_functions
 
-  name = "breachline-sync-${each.key}-role"
+  name = "breachline-sync-${each.key}-role${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -871,7 +871,7 @@ resource "aws_iam_role" "lambda_function_roles" {
   })
 
   tags = {
-    Name = "breachline-sync-${each.key}-role"
+    Name = "breachline-sync-${each.key}-role${local.suffix}"
   }
 }
 
@@ -895,7 +895,7 @@ resource "aws_iam_role_policy_attachment" "lambda_function_xray" {
 resource "aws_iam_role_policy" "lambda_function_custom" {
   for_each = { for k, v in local.lambda_functions : k => v if lookup(v, "iam_policy_statements", null) != null }
 
-  name = "breachline-sync-${each.key}-custom-policy"
+  name = "breachline-sync-${each.key}-custom-policy${local.suffix}"
   role = aws_iam_role.lambda_function_roles[each.key].id
 
   policy = jsonencode({
@@ -914,12 +914,12 @@ resource "aws_iam_role_policy" "lambda_function_custom" {
 resource "aws_lambda_function" "functions" {
   for_each = local.lambda_functions
 
-  function_name = "breachline-sync-${each.key}"
+  function_name = "breachline-sync-${each.key}${local.suffix}"
   role          = aws_iam_role.lambda_function_roles[each.key].arn
   handler       = "bootstrap"
   runtime       = "provided.al2023"
   architectures = ["arm64"]
-  
+
   filename         = "${path.module}/build/${each.key}.zip"
   source_code_hash = fileexists("${path.module}/build/${each.key}.zip") ? filebase64sha256("${path.module}/build/${each.key}.zip") : null
 
@@ -935,18 +935,18 @@ resource "aws_lambda_function" "functions" {
   }
 
   tags = {
-    Name = "breachline-sync-${each.key}"
+    Name = "breachline-sync-${each.key}${local.suffix}"
   }
 }
 
 # Lambda Authorizer function
 resource "aws_lambda_function" "authorizer" {
-  function_name = "breachline-sync-authorizer"
+  function_name = "breachline-sync-authorizer${local.suffix}"
   role          = aws_iam_role.lambda_execution.arn
   handler       = "bootstrap"
   runtime       = "provided.al2023"
   architectures = ["arm64"]
-  
+
   filename         = "${path.module}/build/authorizer.zip"
   source_code_hash = fileexists("${path.module}/build/authorizer.zip") ? filebase64sha256("${path.module}/build/authorizer.zip") : null
 
@@ -964,7 +964,7 @@ resource "aws_lambda_function" "authorizer" {
   }
 
   tags = {
-    Name = "breachline-sync-authorizer"
+    Name = "breachline-sync-authorizer${local.suffix}"
   }
 }
 
@@ -974,30 +974,30 @@ resource "aws_lambda_function" "authorizer" {
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   for_each = local.lambda_functions
 
-  name              = "/aws/lambda/breachline-sync-${each.key}"
+  name              = "/aws/lambda/breachline-sync-${each.key}${local.suffix}"
   retention_in_days = 30
 
   tags = {
-    Name = "breachline-sync-${each.key}-logs"
+    Name = "breachline-sync-${each.key}-logs${local.suffix}"
   }
 }
 
 resource "aws_cloudwatch_log_group" "authorizer_logs" {
-  name              = "/aws/lambda/breachline-sync-authorizer"
+  name              = "/aws/lambda/breachline-sync-authorizer${local.suffix}"
   retention_in_days = 30
 
   tags = {
-    Name = "breachline-sync-authorizer-logs"
+    Name = "breachline-sync-authorizer-logs${local.suffix}"
   }
 }
 
 # CloudWatch Log Group for sync API (used by rate limiting metric filter)
 resource "aws_cloudwatch_log_group" "sync_api" {
-  name              = "/aws/apigateway/breachline-sync"
+  name              = "/aws/apigateway/breachline-sync${local.suffix}"
   retention_in_days = 30
 
   tags = {
-    Name = "breachline-sync-api-logs"
+    Name = "breachline-sync-api-logs${local.suffix}"
   }
 }
 

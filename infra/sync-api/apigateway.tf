@@ -1,6 +1,6 @@
 # API Gateway REST API
 resource "aws_api_gateway_rest_api" "main" {
-  name        = "breachline-sync-api"
+  name        = "breachline-sync-api${local.suffix}"
   description = "BreachLine Sync API for workspace synchronization"
 
   endpoint_configuration {
@@ -8,7 +8,7 @@ resource "aws_api_gateway_rest_api" "main" {
   }
 
   tags = {
-    Name = "breachline-sync-api"
+    Name = "breachline-sync-api${local.suffix}"
   }
 }
 
@@ -24,7 +24,7 @@ resource "aws_api_gateway_authorizer" "jwt" {
   authorizer_uri  = aws_lambda_function.authorizer.invoke_arn
   type            = "TOKEN"
   identity_source = "method.request.header.Authorization"
-  
+
   # Cache authorization for 5 minutes
   authorizer_result_ttl_in_seconds = 300
 }
@@ -44,194 +44,194 @@ locals {
   api_endpoints = {
     # Auth endpoints (no authorization required)
     "POST-auth/request-pin" = {
-      path        = "auth/request-pin"
-      lambda      = "auth-request-pin"
-      method      = "POST"
-      auth        = false
+      path   = "auth/request-pin"
+      lambda = "auth-request-pin"
+      method = "POST"
+      auth   = false
     }
     "POST-auth/verify-pin" = {
-      path        = "auth/verify-pin"
-      lambda      = "auth-verify-pin"
-      method      = "POST"
-      auth        = false
+      path   = "auth/verify-pin"
+      lambda = "auth-verify-pin"
+      method = "POST"
+      auth   = false
     }
     "POST-auth/refresh" = {
-      path        = "auth/refresh"
-      lambda      = "auth-refresh"
-      method      = "POST"
-      auth        = false
+      path   = "auth/refresh"
+      lambda = "auth-refresh"
+      method = "POST"
+      auth   = false
     }
     # Auth endpoints (authorization required)
     "POST-auth/logout" = {
-      path        = "auth/logout"
-      lambda      = "auth-logout"
-      method      = "POST"
-      auth        = true
+      path   = "auth/logout"
+      lambda = "auth-logout"
+      method = "POST"
+      auth   = true
     }
-    
+
     # Workspace endpoints
     "GET-workspaces" = {
-      path        = "workspaces"
-      lambda      = "workspace-list"
-      method      = "GET"
-      auth        = true
+      path   = "workspaces"
+      lambda = "workspace-list"
+      method = "GET"
+      auth   = true
     }
     "POST-workspaces" = {
-      path        = "workspaces"
-      lambda      = "workspace-create"
-      method      = "POST"
-      auth        = true
+      path   = "workspaces"
+      lambda = "workspace-create"
+      method = "POST"
+      auth   = true
     }
     "GET-workspaces/{workspace_id}" = {
-      path        = "workspaces/{workspace_id}"
-      lambda      = "workspace-get"
-      method      = "GET"
-      auth        = true
+      path   = "workspaces/{workspace_id}"
+      lambda = "workspace-get"
+      method = "GET"
+      auth   = true
     }
     "PUT-workspaces/{workspace_id}" = {
-      path        = "workspaces/{workspace_id}"
-      lambda      = "workspace-update"
-      method      = "PUT"
-      auth        = true
+      path   = "workspaces/{workspace_id}"
+      lambda = "workspace-update"
+      method = "PUT"
+      auth   = true
     }
     "DELETE-workspaces/{workspace_id}" = {
-      path        = "workspaces/{workspace_id}"
-      lambda      = "workspace-delete"
-      method      = "DELETE"
-      auth        = true
+      path   = "workspaces/{workspace_id}"
+      lambda = "workspace-delete"
+      method = "DELETE"
+      auth   = true
     }
     "POST-workspaces/{workspace_id}/convert-to-shared" = {
-      path        = "workspaces/{workspace_id}/convert-to-shared"
-      lambda      = "workspace-convert-to-shared"
-      method      = "POST"
-      auth        = true
+      path   = "workspaces/{workspace_id}/convert-to-shared"
+      lambda = "workspace-convert-to-shared"
+      method = "POST"
+      auth   = true
     }
-    
+
     # Annotation endpoints
     "GET-workspaces/{workspace_id}/annotations" = {
-      path        = "workspaces/{workspace_id}/annotations"
-      lambda      = "annotation-list"
-      method      = "GET"
-      auth        = true
+      path   = "workspaces/{workspace_id}/annotations"
+      lambda = "annotation-list"
+      method = "GET"
+      auth   = true
     }
     "GET-workspaces/{workspace_id}/annotations/{annotation_id}" = {
-      path        = "workspaces/{workspace_id}/annotations/{annotation_id}"
-      lambda      = "annotation-get"
-      method      = "GET"
-      auth        = true
+      path   = "workspaces/{workspace_id}/annotations/{annotation_id}"
+      lambda = "annotation-get"
+      method = "GET"
+      auth   = true
     }
     "POST-workspaces/{workspace_id}/annotations" = {
-      path        = "workspaces/{workspace_id}/annotations"
-      lambda      = "annotation-create"
-      method      = "POST"
-      auth        = true
+      path   = "workspaces/{workspace_id}/annotations"
+      lambda = "annotation-create"
+      method = "POST"
+      auth   = true
     }
     "PUT-workspaces/{workspace_id}/annotations/{annotation_id}" = {
-      path        = "workspaces/{workspace_id}/annotations/{annotation_id}"
-      lambda      = "annotation-update"
-      method      = "PUT"
-      auth        = true
+      path   = "workspaces/{workspace_id}/annotations/{annotation_id}"
+      lambda = "annotation-update"
+      method = "PUT"
+      auth   = true
     }
     "PUT-workspaces/{workspace_id}/annotations" = {
-      path        = "workspaces/{workspace_id}/annotations"
-      lambda      = "annotation-update"
-      method      = "PUT"
-      auth        = true
+      path             = "workspaces/{workspace_id}/annotations"
+      lambda           = "annotation-update"
+      method           = "PUT"
+      auth             = true
       skip_permissions = true
     }
     "DELETE-workspaces/{workspace_id}/annotations/{annotation_id}" = {
-      path        = "workspaces/{workspace_id}/annotations/{annotation_id}"
-      lambda      = "annotation-delete"
-      method      = "DELETE"
-      auth        = true
+      path   = "workspaces/{workspace_id}/annotations/{annotation_id}"
+      lambda = "annotation-delete"
+      method = "DELETE"
+      auth   = true
     }
     "DELETE-workspaces/{workspace_id}/annotations" = {
-      path        = "workspaces/{workspace_id}/annotations"
-      lambda      = "annotation-delete"
-      method      = "DELETE"
-      auth        = true
+      path             = "workspaces/{workspace_id}/annotations"
+      lambda           = "annotation-delete"
+      method           = "DELETE"
+      auth             = true
       skip_permissions = true
     }
 
     # File endpoints
     "GET-workspaces/{workspace_id}/files" = {
-      path        = "workspaces/{workspace_id}/files"
-      lambda      = "file-list"
-      method      = "GET"
-      auth        = true
+      path   = "workspaces/{workspace_id}/files"
+      lambda = "file-list"
+      method = "GET"
+      auth   = true
     }
     "GET-workspaces/{workspace_id}/files/{file_hash}" = {
-      path        = "workspaces/{workspace_id}/files/{file_hash}"
-      lambda      = "file-get"
-      method      = "GET"
-      auth        = true
+      path   = "workspaces/{workspace_id}/files/{file_hash}"
+      lambda = "file-get"
+      method = "GET"
+      auth   = true
     }
     "POST-workspaces/{workspace_id}/files" = {
-      path        = "workspaces/{workspace_id}/files"
-      lambda      = "file-create"
-      method      = "POST"
-      auth        = true
+      path   = "workspaces/{workspace_id}/files"
+      lambda = "file-create"
+      method = "POST"
+      auth   = true
     }
     "PUT-workspaces/{workspace_id}/files/{file_hash}" = {
-      path        = "workspaces/{workspace_id}/files/{file_hash}"
-      lambda      = "file-update"
-      method      = "PUT"
-      auth        = true
+      path   = "workspaces/{workspace_id}/files/{file_hash}"
+      lambda = "file-update"
+      method = "PUT"
+      auth   = true
     }
     "DELETE-workspaces/{workspace_id}/files/{file_hash}" = {
-      path        = "workspaces/{workspace_id}/files/{file_hash}"
-      lambda      = "file-delete"
-      method      = "DELETE"
-      auth        = true
+      path   = "workspaces/{workspace_id}/files/{file_hash}"
+      lambda = "file-delete"
+      method = "DELETE"
+      auth   = true
     }
 
     # File location endpoints
     "POST-file-locations" = {
-      path        = "file-locations"
-      lambda      = "file-location-store"
-      method      = "POST"
-      auth        = true
+      path   = "file-locations"
+      lambda = "file-location-store"
+      method = "POST"
+      auth   = true
     }
     "GET-file-locations" = {
-      path        = "file-locations"
-      lambda      = "file-location-get"
-      method      = "GET"
-      auth        = true
+      path   = "file-locations"
+      lambda = "file-location-get"
+      method = "GET"
+      auth   = true
     }
     "GET-file-locations/all" = {
-      path        = "file-locations/all"
-      lambda      = "file-locations-list"
-      method      = "GET"
-      auth        = true
+      path   = "file-locations/all"
+      lambda = "file-locations-list"
+      method = "GET"
+      auth   = true
     }
 
     # Members endpoints
     "GET-workspaces/{workspace_id}/members" = {
-      path        = "workspaces/{workspace_id}/members"
-      lambda      = "workspace-list-members"
-      method      = "GET"
-      auth        = true
+      path   = "workspaces/{workspace_id}/members"
+      lambda = "workspace-list-members"
+      method = "GET"
+      auth   = true
     }
     "POST-workspaces/{workspace_id}/members" = {
-      path        = "workspaces/{workspace_id}/members"
-      lambda      = "workspace-add-member"
-      method      = "POST"
-      auth        = true
+      path   = "workspaces/{workspace_id}/members"
+      lambda = "workspace-add-member"
+      method = "POST"
+      auth   = true
     }
     "PUT-workspaces/{workspace_id}/members/{email}" = {
-      path        = "workspaces/{workspace_id}/members/{email}"
-      lambda      = "workspace-update-member"
-      method      = "PUT"
-      auth        = true
+      path   = "workspaces/{workspace_id}/members/{email}"
+      lambda = "workspace-update-member"
+      method = "PUT"
+      auth   = true
     }
     "DELETE-workspaces/{workspace_id}/members/{email}" = {
-      path        = "workspaces/{workspace_id}/members/{email}"
-      lambda      = "workspace-remove-member"
-      method      = "DELETE"
-      auth        = true
+      path   = "workspaces/{workspace_id}/members/{email}"
+      lambda = "workspace-remove-member"
+      method = "DELETE"
+      auth   = true
     }
   }
-  
+
   # Filter out endpoints that should skip lambda permissions
   filtered_api_endpoints = {
     for key, endpoint in local.api_endpoints : key => endpoint
@@ -245,33 +245,33 @@ locals {
   level1_paths = toset([
     for endpoint in local.api_endpoints : split("/", endpoint.path)[0]
   ])
-  
+
   # Level 2: Second-level paths
   level2_paths = toset([
-    for endpoint in local.api_endpoints : 
-      join("/", slice(split("/", endpoint.path), 0, 2))
-      if length(split("/", endpoint.path)) >= 2
+    for endpoint in local.api_endpoints :
+    join("/", slice(split("/", endpoint.path), 0, 2))
+    if length(split("/", endpoint.path)) >= 2
   ])
-  
+
   # Level 3: Third-level paths
   level3_paths = toset([
-    for endpoint in local.api_endpoints : 
-      join("/", slice(split("/", endpoint.path), 0, 3))
-      if length(split("/", endpoint.path)) >= 3
+    for endpoint in local.api_endpoints :
+    join("/", slice(split("/", endpoint.path), 0, 3))
+    if length(split("/", endpoint.path)) >= 3
   ])
-  
+
   # Level 4: Fourth-level paths
   level4_paths = toset([
-    for endpoint in local.api_endpoints : 
-      join("/", slice(split("/", endpoint.path), 0, 4))
-      if length(split("/", endpoint.path)) >= 4
+    for endpoint in local.api_endpoints :
+    join("/", slice(split("/", endpoint.path), 0, 4))
+    if length(split("/", endpoint.path)) >= 4
   ])
-  
+
   # Level 5: Fifth-level paths
   level5_paths = toset([
-    for endpoint in local.api_endpoints : 
-      join("/", slice(split("/", endpoint.path), 0, 5))
-      if length(split("/", endpoint.path)) >= 5
+    for endpoint in local.api_endpoints :
+    join("/", slice(split("/", endpoint.path), 0, 5))
+    if length(split("/", endpoint.path)) >= 5
   ])
 }
 
@@ -424,17 +424,17 @@ resource "aws_api_gateway_stage" "v1" {
   }
 
   tags = {
-    Name = "breachline-sync-api-v1"
+    Name = "breachline-sync-api-v1${local.suffix}"
   }
 }
 
 # CloudWatch Log Group for API Gateway access logs
 resource "aws_cloudwatch_log_group" "api_gateway_access_logs" {
-  name              = "/aws/apigateway/breachline-sync-api"
+  name              = "/aws/apigateway/breachline-sync-api${local.suffix}"
   retention_in_days = 30
 
   tags = {
-    Name = "breachline-sync-api-access-logs"
+    Name = "breachline-sync-api-access-logs${local.suffix}"
   }
 }
 
@@ -449,17 +449,17 @@ resource "aws_api_gateway_method_settings" "all" {
     logging_level          = "INFO"
     data_trace_enabled     = false
     throttling_burst_limit = 100 // Allow up to 100 concurrent bursted requests
-    throttling_rate_limit  = 50 // Allow 50 requests per second
-    
+    throttling_rate_limit  = 50  // Allow 50 requests per second
+
     # Cache settings for GET requests
-    caching_enabled = true
+    caching_enabled      = true
     cache_ttl_in_seconds = 60
   }
 }
 
 # Usage Plan for rate limiting
 resource "aws_api_gateway_usage_plan" "main" {
-  name        = "breachline-sync-usage-plan"
+  name        = "breachline-sync-usage-plan${local.suffix}"
   description = "Usage plan for BreachLine Sync API"
 
   api_stages {
@@ -478,6 +478,6 @@ resource "aws_api_gateway_usage_plan" "main" {
   }
 
   tags = {
-    Name = "breachline-sync-usage-plan"
+    Name = "breachline-sync-usage-plan${local.suffix}"
   }
 }

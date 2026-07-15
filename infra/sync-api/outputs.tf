@@ -1,7 +1,7 @@
 # API Gateway outputs
 output "api_gateway_url" {
   description = "Base URL for the API Gateway"
-  value       = "${aws_api_gateway_stage.v1.invoke_url}"
+  value       = aws_api_gateway_stage.v1.invoke_url
 }
 
 output "api_gateway_id" {
@@ -66,10 +66,12 @@ output "license_public_key_arn" {
   sensitive   = true
 }
 
-# SES outputs
+# SES outputs. The domain identity + DKIM are only declared in prod
+# (local.manage_ses_domain); dev falls back to the configured domain name and
+# an empty token list.
 output "ses_domain_identity" {
   description = "SES domain identity"
-  value       = aws_ses_domain_identity.main.domain
+  value       = local.manage_ses_domain ? aws_ses_domain_identity.main[0].domain : var.ses_verified_domain
 }
 
 output "ses_from_email" {
@@ -79,7 +81,7 @@ output "ses_from_email" {
 
 output "ses_dkim_tokens" {
   description = "DKIM tokens for DNS configuration"
-  value       = aws_ses_domain_dkim.main.dkim_tokens
+  value       = local.manage_ses_domain ? aws_ses_domain_dkim.main[0].dkim_tokens : []
 }
 
 # CloudWatch outputs

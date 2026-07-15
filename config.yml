@@ -1,0 +1,68 @@
+# ============================================================================
+# BreachLine plaintext infra config - non-secret values only.
+# Committed to git. Edit directly (make edit-config); run `make render ENV=<env>`
+# to fan out to per-component infra/<c>/<env>.tfvars + secrets.env.
+# Secrets live in secrets.vault.yml (ansible-vault encrypted, edit via
+# `make edit-secrets`). The two files share a top-level namespace
+# (config: here, vault: there).
+#
+# Two deploy environments (dev / prod) coexist in the SAME AWS account: every
+# resource name + terraform state key is suffixed with -<env>. dev points at
+# the Stripe sandbox; prod at the Stripe live API. Pick the target with
+# `make deploy ENV=dev` / `make deploy ENV=prod` (default ENV=dev).
+# ============================================================================
+config:
+  aws:
+    region: "ap-southeast-2"
+    tfstate_bucket: "scrappy-tfstate"
+
+  # Shared defaults applied under every environment. A key set inside an
+  # environments.<env>.<component> block overrides the same key here.
+  defaults:
+    sync_api:
+      lambda_memory_size: 512
+      lambda_timeout: 30
+      audit_ttl_days: 90
+      pin_ttl_hours: 12
+      pin_request_rate_limit: 3
+      ses_verified_domain: "breachline.app"
+    website:
+      price_class: "PriceClass_100"
+      default_root_object: "index.html"
+      error_document: "error.html"
+
+  # Per-environment config. `components` toggles are persisted here so
+  # `make deploy` remembers intended state; flip with
+  # `make enable-<c> ENV=<env>` / `make disable-<c> ENV=<env>`.
+  environments:
+    dev:
+      components:
+        website: true
+        sync_api: true
+        payment_api: true
+      website:
+        domain_name: ""        # empty => serve on the CloudFront default domain
+        subdomain: ""
+        enable_ssl: false
+      sync_api:
+        api_domain_name: "api-dev.breachline.app"
+        ses_email_from: "noreply-dev@breachline.app"
+        alarm_email: "alerts@breachline.app"
+      payment_api:
+        ses_sender_email: "noreply-dev@breachline.app"
+
+    prod:
+      components:
+        website: true
+        sync_api: true
+        payment_api: true
+      website:
+        domain_name: "breachline.app"
+        subdomain: "www"
+        enable_ssl: true
+      sync_api:
+        api_domain_name: "api.breachline.app"
+        ses_email_from: "noreply@breachline.app"
+        alarm_email: "alerts@breachline.app"
+      payment_api:
+        ses_sender_email: "noreply@breachline.app"

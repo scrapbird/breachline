@@ -28,11 +28,24 @@ It is a static website hosted on an S3 bucket in front of a CloudFront distribut
 
 Using this website, users can obtain information about the application, download the application builds and purchase a license for the premium version.
 
-## License generator
+## Payment API (license generator)
 
-The license generator handles the payment flow after payments have been processed by Stripe. It consists of a series of Go lambda functions which handle generating and delivering application license files to customers.
+The payment API handles the payment flow after payments have been processed by Stripe. It consists of a series of Go lambda functions which handle generating and delivering application license files to customers.
 
-the code for this component can be found in the `infra/order_processor` directory in the root of the repo.
+The code for this component can be found in the `infra/payment-api` directory in the root of the repo.
+
+## Sync API
+
+The sync API backs workspace/annotation sync and license-gated auth. Its Go lambda functions live in the `infra/sync-api` directory.
+
+## Deploying infrastructure
+
+All infra (`infra/payment-api`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`, driven by a single committed `config.yml` (non-secret) + `secrets.vault.yml` (ansible-vault encrypted). Two environments coexist in the same AWS account, suffixed `-dev`/`-prod` on every resource name + tfstate key; `dev` uses the Stripe sandbox, `prod` the live Stripe API.
+
+- `make init` — bootstrap `config.yml` + `secrets.vault.yml` + `.vault-password-file` (restore the password file from 1Password on a new machine).
+- `make edit-secrets` — set `vault.environments.<env>.stripe.{api_key,webhook_secret}`.
+- `make deploy ENV=dev` / `make deploy ENV=prod` (or `make deploy-dev` / `deploy-prod`) — render + build lambdas + `terraform apply` each enabled component.
+- `make help` lists all targets. Non-secret per-env config is in `config.yml`; secrets in the vault. Rendered `secrets.env` + `infra/<c>/<env>.tfvars` are gitignored.
 
 # Backend
 
@@ -67,7 +80,7 @@ When writing short scripts that are to be run as a standalone application:
 - Always use terraform for managing servers / lambda functions etc
 - All AWS resources created by the terraform template should have a tag named project with the value breachline
 - Terraform state files should always be stored in the AWS
-S3 bucket named `scrappy-tfstate` in the ap-southeast-2 region. The state should always be contained in folder within the bucket named after the infrastructure component such as `order_processor/terraform.tfstate`
+S3 bucket named `scrappy-tfstate` in the ap-southeast-2 region. The state should always be contained in folder within the bucket named after the infrastructure component, and (for components with dev/prod environments) scoped by environment, such as `payment-api/dev/terraform.tfstate` and `payment-api/prod/terraform.tfstate`
 - Always use a lockfile in the same bucket folder as the tfstate file for the state locking
 - Always use a Go lambda function for tasks which should run on a schedule or are not interactive. If unsure, ask for clarification before continuing
 - Always use ansible for provisioning servers

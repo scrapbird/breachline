@@ -1,9 +1,9 @@
 # SNS Topic for CloudWatch Alarms
 resource "aws_sns_topic" "alarms" {
-  name = "breachline-sync-alarms"
+  name = "breachline-sync-alarms${local.suffix}"
 
   tags = {
-    Name = "breachline-sync-alarms"
+    Name = "breachline-sync-alarms${local.suffix}"
   }
 }
 
@@ -18,7 +18,7 @@ resource "aws_sns_topic_subscription" "alarms_email" {
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   for_each = local.lambda_functions
 
-  alarm_name          = "breachline-sync-${each.key}-errors"
+  alarm_name          = "breachline-sync-${each.key}-errors${local.suffix}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "Errors"
@@ -38,7 +38,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 
 # API Gateway 5xx Error Alarm
 resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx" {
-  alarm_name          = "breachline-sync-api-5xx-errors"
+  alarm_name          = "breachline-sync-api-5xx-errors${local.suffix}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "5XXError"
@@ -57,7 +57,7 @@ resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx" {
 
 # API Gateway 4xx Error Alarm (for monitoring)
 resource "aws_cloudwatch_metric_alarm" "api_gateway_4xx" {
-  alarm_name          = "breachline-sync-api-4xx-errors"
+  alarm_name          = "breachline-sync-api-4xx-errors${local.suffix}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "4XXError"
@@ -82,7 +82,7 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_throttles" {
     subscriptions     = aws_dynamodb_table.user_subscriptions.name
   }
 
-  alarm_name          = "breachline-sync-dynamodb-${each.key}-throttles"
+  alarm_name          = "breachline-sync-dynamodb-${each.key}-throttles${local.suffix}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "UserErrors"
@@ -102,14 +102,14 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_throttles" {
 
 # Lambda Concurrent Executions Alarm
 resource "aws_cloudwatch_metric_alarm" "lambda_concurrent_executions" {
-  alarm_name          = "breachline-sync-lambda-concurrent-executions"
+  alarm_name          = "breachline-sync-lambda-concurrent-executions${local.suffix}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "ConcurrentExecutions"
   namespace           = "AWS/Lambda"
   period              = 60
   statistic           = "Maximum"
-  threshold           = 900  # Alert at 90% of default limit (1000)
+  threshold           = 900 # Alert at 90% of default limit (1000)
   alarm_description   = "Alert when Lambda concurrent executions are high"
   alarm_actions       = [aws_sns_topic.alarms.arn]
 }
@@ -118,7 +118,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_concurrent_executions" {
 
 # Custom CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "main" {
-  dashboard_name = "breachline-sync-api"
+  dashboard_name = "breachline-sync-api${local.suffix}"
 
   dashboard_body = jsonencode({
     widgets = [

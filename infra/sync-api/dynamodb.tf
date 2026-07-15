@@ -1,6 +1,6 @@
 # PINs Table - Temporary storage for authentication PINs
 resource "aws_dynamodb_table" "pins" {
-  name         = "breachline-sync-pins"
+  name         = "breachline-sync-pins${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "email"
   range_key    = "pin_hash"
@@ -29,13 +29,13 @@ resource "aws_dynamodb_table" "pins" {
   }
 
   tags = {
-    Name = "breachline-sync-pins"
+    Name = "breachline-sync-pins${local.suffix}"
   }
 }
 
 # Workspaces Table
 resource "aws_dynamodb_table" "workspaces" {
-  name         = "breachline-sync-workspaces"
+  name         = "breachline-sync-workspaces${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "workspace_id"
 
@@ -71,13 +71,13 @@ resource "aws_dynamodb_table" "workspaces" {
   }
 
   tags = {
-    Name = "breachline-sync-workspaces"
+    Name = "breachline-sync-workspaces${local.suffix}"
   }
 }
 
 # WorkspaceMembers Table
 resource "aws_dynamodb_table" "workspace_members" {
-  name         = "breachline-sync-workspace-members"
+  name         = "breachline-sync-workspace-members${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "workspace_id"
   range_key    = "email"
@@ -109,13 +109,13 @@ resource "aws_dynamodb_table" "workspace_members" {
   }
 
   tags = {
-    Name = "breachline-sync-workspace-members"
+    Name = "breachline-sync-workspace-members${local.suffix}"
   }
 }
 
 # Annotations Table
 resource "aws_dynamodb_table" "annotations" {
-  name         = "breachline-sync-annotations"
+  name         = "breachline-sync-annotations${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "workspace_id"
   range_key    = "annotation_id"
@@ -191,7 +191,7 @@ resource "aws_dynamodb_table" "annotations" {
   }
 
   tags = {
-    Name = "breachline-sync-annotations"
+    Name = "breachline-sync-annotations${local.suffix}"
   }
 }
 
@@ -199,7 +199,7 @@ resource "aws_dynamodb_table" "annotations" {
 # Uses file_identifier as range key to support multiple entries of the same file
 # with different jpath and no_header_row values
 resource "aws_dynamodb_table" "workspace_files" {
-  name         = "breachline-sync-workspace-files"
+  name         = "breachline-sync-workspace-files${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "workspace_id"
   range_key    = "file_identifier"
@@ -236,14 +236,14 @@ resource "aws_dynamodb_table" "workspace_files" {
   }
 
   tags = {
-    Name    = "breachline-sync-workspace-files"
+    Name    = "breachline-sync-workspace-files${local.suffix}"
     project = "breachline"
   }
 }
 
 # Audit Table - Stores workspace change audit log
 resource "aws_dynamodb_table" "audit" {
-  name         = "breachline-sync-audit"
+  name         = "breachline-sync-audit${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "audit_id"
   range_key    = "created_at"
@@ -285,14 +285,14 @@ resource "aws_dynamodb_table" "audit" {
   }
 
   tags = {
-    Name    = "breachline-sync-audit"
+    Name    = "breachline-sync-audit${local.suffix}"
     project = "breachline"
   }
 }
 
 # User Subscriptions Table - Stores user workspace limits and seat counts
 resource "aws_dynamodb_table" "user_subscriptions" {
-  name         = "breachline-sync-user-subscriptions"
+  name         = "breachline-sync-user-subscriptions${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "email"
 
@@ -310,13 +310,13 @@ resource "aws_dynamodb_table" "user_subscriptions" {
   }
 
   tags = {
-    Name = "breachline-sync-user-subscriptions"
+    Name = "breachline-sync-user-subscriptions${local.suffix}"
   }
 }
 
 # Workspace File Locations Table - Stores absolute file paths for each Breachline instance
 resource "aws_dynamodb_table" "workspace_file_locations" {
-  name         = "breachline-sync-workspace-file-locations"
+  name         = "breachline-sync-workspace-file-locations${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "instance_id"
   range_key    = "file_hash"
@@ -353,7 +353,7 @@ resource "aws_dynamodb_table" "workspace_file_locations" {
   }
 
   tags = {
-    Name    = "breachline-sync-workspace-file-locations"
+    Name    = "breachline-sync-workspace-file-locations${local.suffix}"
     project = "breachline"
   }
 }

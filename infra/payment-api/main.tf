@@ -12,9 +12,11 @@ terraform {
     }
   }
 
+  # State key is supplied per-environment at init time via -backend-config,
+  # e.g. -backend-config="key=payment-api/dev/terraform.tfstate". See the root
+  # Makefile's tf-payment-api target.
   backend "s3" {
     bucket       = "scrappy-tfstate"
-    key          = "breachline-payment-api/terraform.tfstate"
     region       = "ap-southeast-2"
     use_lockfile = true
   }
@@ -25,14 +27,26 @@ provider "aws" {
 
   default_tags {
     tags = {
-      project   = "breachline"
-      component = "payment-api"
+      project     = "breachline"
+      component   = "payment-api"
+      environment = var.environment
     }
   }
 }
 
 # Data source for current AWS account
 data "aws_caller_identity" "current" {}
+
+locals {
+  # Appended to every globally-scoped resource name so dev + prod never
+  # collide in the same AWS account.
+  suffix = "-${var.environment}"
+
+  # Recreating a Secrets Manager secret with the same name while it is in the
+  # deletion recovery window fails, which makes dev teardown/redeploy painful.
+  # Give prod the safety window; let dev recycle immediately.
+  secret_recovery_days = var.environment == "prod" ? 7 : 0
+}
 
 # Random secret for CloudFront to API Gateway authentication
 resource "random_password" "cloudfront_secret" {
@@ -46,31 +60,49 @@ resource "random_password" "cloudfront_secret" {
 
 # Secrets Manager secret for the license signing key
 resource "aws_secretsmanager_secret" "signing_key" {
-  name        = "breachline-license-signing-key"
+  name        = "breachline-license-signing-key${local.suffix}"
   description = "Private key for signing BreachLine licenses"
 
-  recovery_window_in_days = 7
+  recovery_window_in_days = local.secret_recovery_days
 }
 
 # Secrets Manager secret for Stripe API key
 resource "aws_secretsmanager_secret" "stripe_api_key" {
-  name        = "breachline-stripe-api-key"
+  name        = "breachline-stripe-api-key${local.suffix}"
   description = "Stripe API key for payment processing"
 
-  recovery_window_in_days = 7
+  recovery_window_in_days = local.secret_recovery_days
 }
 
 # Secrets Manager secret for Stripe webhook secret
 resource "aws_secretsmanager_secret" "stripe_webhook_secret" {
-  name        = "breachline-stripe-webhook-secret"
+  name        = "breachline-stripe-webhook-secret${local.suffix}"
   description = "Stripe webhook signing secret for verifying webhook authenticity"
 
-  recovery_window_in_days = 7
+  recovery_window_in_days = local.secret_recovery_days
+}
+
+# Secret values are populated from the ansible-vault (via TF_VAR_* sourced from
+# secrets.env), so a `make deploy` stands the environment up end-to-end with no
+# manual `aws secretsmanager put-secret-value` step.
+resource "aws_secretsmanager_secret_version" "signing_key" {
+  secret_id     = aws_secretsmanager_secret.signing_key.id
+  secret_string = var.license_signing_private_key
+}
+
+resource "aws_secretsmanager_secret_version" "stripe_api_key" {
+  secret_id     = aws_secretsmanager_secret.stripe_api_key.id
+  secret_string = var.stripe_api_key
+}
+
+resource "aws_secretsmanager_secret_version" "stripe_webhook_secret" {
+  secret_id     = aws_secretsmanager_secret.stripe_webhook_secret.id
+  secret_string = var.stripe_webhook_secret
 }
 
 # IAM role for License Generator Lambda
 resource "aws_iam_role" "license_generator_role" {
-  name = "breachline-license-generator-lambda"
+  name = "breachline-license-generator-lambda${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -145,7 +177,7 @@ resource "null_resource" "build_license_generator" {
 # License Generator Lambda function
 resource "aws_lambda_function" "license_generator" {
   filename         = "${path.module}/build/license-generator.zip"
-  function_name    = "breachline-license-generator"
+  function_name    = "breachline-license-generator${local.suffix}"
   role             = aws_iam_role.license_generator_role.arn
   handler          = "bootstrap"
   source_code_hash = filebase64sha256("${path.module}/build/license-generator.zip")
@@ -176,12 +208,12 @@ resource "aws_cloudwatch_log_group" "license_generator_logs" {
 
 # SNS topic for license generation requests
 resource "aws_sns_topic" "license_generation" {
-  name = "breachline-license-generation"
+  name = "breachline-license-generation${local.suffix}"
 }
 
 # SNS topic for license delivery notifications
 resource "aws_sns_topic" "license_delivery" {
-  name = "breachline-license-delivery"
+  name = "breachline-license-delivery${local.suffix}"
 }
 
 # Subscribe license generator Lambda to SNS topic
@@ -206,7 +238,7 @@ resource "aws_lambda_permission" "license_generator_sns" {
 
 # IAM role for API Gateway to write logs to CloudWatch
 resource "aws_iam_role" "api_gateway_cloudwatch" {
-  name = "breachline-api-gateway-cloudwatch-role"
+  name = "breachline-api-gateway-cloudwatch-role${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -239,7 +271,7 @@ resource "aws_api_gateway_account" "main" {
 
 # IAM role for Stripe Webhook Lambda
 resource "aws_iam_role" "stripe_webhook_role" {
-  name = "breachline-stripe-webhook-lambda-role"
+  name = "breachline-stripe-webhook-lambda-role${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -317,7 +349,7 @@ resource "null_resource" "build_stripe_webhook" {
 # Stripe Webhook Lambda function
 resource "aws_lambda_function" "stripe_webhook" {
   filename         = "${path.module}/build/stripe-webhook.zip"
-  function_name    = "breachline-stripe-webhook"
+  function_name    = "breachline-stripe-webhook${local.suffix}"
   role             = aws_iam_role.stripe_webhook_role.arn
   handler          = "bootstrap"
   source_code_hash = filebase64sha256("${path.module}/build/stripe-webhook.zip")
@@ -328,10 +360,10 @@ resource "aws_lambda_function" "stripe_webhook" {
 
   environment {
     variables = {
-      STRIPE_WEBHOOK_SECRET_ARN    = aws_secretsmanager_secret.stripe_webhook_secret.arn
-      LICENSE_GENERATION_TOPIC     = aws_sns_topic.license_generation.arn
-      STRIPE_API_KEY_SECRET_ARN    = aws_secretsmanager_secret.stripe_api_key.arn
-      CLOUDFRONT_SECRET            = random_password.cloudfront_secret.result
+      STRIPE_WEBHOOK_SECRET_ARN = aws_secretsmanager_secret.stripe_webhook_secret.arn
+      LICENSE_GENERATION_TOPIC  = aws_sns_topic.license_generation.arn
+      STRIPE_API_KEY_SECRET_ARN = aws_secretsmanager_secret.stripe_api_key.arn
+      CLOUDFRONT_SECRET         = random_password.cloudfront_secret.result
     }
   }
 
@@ -346,7 +378,7 @@ resource "aws_cloudwatch_log_group" "stripe_webhook_logs" {
 
 # API Gateway REST API for Stripe Webhook
 resource "aws_api_gateway_rest_api" "stripe_webhook" {
-  name        = "breachline-stripe-webhook"
+  name        = "breachline-stripe-webhook${local.suffix}"
   description = "API Gateway for Stripe webhook handler"
 }
 
@@ -374,7 +406,7 @@ resource "aws_api_gateway_method" "webhook_post" {
 
   # Require stripe-signature and CloudFront secret headers
   request_parameters = {
-    "method.request.header.stripe-signature" = true
+    "method.request.header.stripe-signature"    = true
     "method.request.header.x-cloudfront-secret" = true
   }
 
@@ -415,7 +447,7 @@ resource "aws_api_gateway_stage" "stripe_webhook_stage" {
 resource "aws_api_gateway_method_settings" "webhook_throttling" {
   rest_api_id = aws_api_gateway_rest_api.stripe_webhook.id
   stage_name  = aws_api_gateway_stage.stripe_webhook_stage.stage_name
-  method_path = "*/*"  # Apply to all methods and resources
+  method_path = "*/*" # Apply to all methods and resources
 
   settings {
     throttling_burst_limit = 100  # Allow short bursts up to 100 concurrent requests
@@ -441,7 +473,7 @@ resource "aws_lambda_permission" "api_gateway" {
 
 # CloudFront Function to validate stripe-signature header
 resource "aws_cloudfront_function" "stripe_signature_validator" {
-  name    = "breachline-stripe-signature-validator"
+  name    = "breachline-stripe-signature-validator${local.suffix}"
   runtime = "cloudfront-js-2.0"
   comment = "Validate stripe-signature header exists before forwarding to API Gateway"
   publish = true
@@ -480,7 +512,7 @@ EOT
 
 # CloudFront cache policy - cache errors, not successful webhooks
 resource "aws_cloudfront_cache_policy" "webhook_cache_policy" {
-  name        = "breachline-webhook-cache-policy"
+  name        = "breachline-webhook-cache-policy${local.suffix}"
   comment     = "Cache error responses only, never cache successful webhook processing"
   default_ttl = 300
   max_ttl     = 3600
@@ -509,7 +541,7 @@ resource "aws_cloudfront_cache_policy" "webhook_cache_policy" {
 
 # CloudFront origin request policy
 resource "aws_cloudfront_origin_request_policy" "webhook_origin_policy" {
-  name    = "breachline-webhook-origin-policy"
+  name    = "breachline-webhook-origin-policy${local.suffix}"
   comment = "Forward webhook validation headers to API Gateway"
 
   cookies_config {
@@ -534,7 +566,7 @@ resource "aws_cloudfront_origin_request_policy" "webhook_origin_policy" {
 
 # CloudFront response headers policy for security
 resource "aws_cloudfront_response_headers_policy" "webhook_response_policy" {
-  name    = "breachline-webhook-response-policy"
+  name    = "breachline-webhook-response-policy${local.suffix}"
   comment = "Security headers for webhook endpoint"
 
   security_headers_config {
@@ -643,7 +675,7 @@ resource "aws_cloudfront_distribution" "webhook_distribution" {
   }
 
   tags = {
-    Name = "breachline-webhook-cdn"
+    Name = "breachline-webhook-cdn${local.suffix}"
   }
 }
 
@@ -653,7 +685,7 @@ resource "aws_cloudfront_distribution" "webhook_distribution" {
 
 # IAM role for License Sender Lambda
 resource "aws_iam_role" "license_sender_role" {
-  name = "breachline-license-sender-lambda-role"
+  name = "breachline-license-sender-lambda-role${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -710,7 +742,7 @@ resource "null_resource" "build_license_sender" {
 # License Sender Lambda function
 resource "aws_lambda_function" "license_sender" {
   filename         = "${path.module}/build/license-sender.zip"
-  function_name    = "breachline-license-sender"
+  function_name    = "breachline-license-sender${local.suffix}"
   role             = aws_iam_role.license_sender_role.arn
   handler          = "bootstrap"
   source_code_hash = filebase64sha256("${path.module}/build/license-sender.zip")
@@ -721,7 +753,7 @@ resource "aws_lambda_function" "license_sender" {
 
   environment {
     variables = {
-      SES_SENDER_EMAIL = "noreply@breachline.app"
+      SES_SENDER_EMAIL = var.ses_sender_email
       LOG_LEVEL        = "INFO"
     }
   }

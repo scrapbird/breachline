@@ -1,6 +1,6 @@
 # IAM role for Lambda functions
 resource "aws_iam_role" "lambda_execution" {
-  name = "breachline-sync-lambda-execution"
+  name = "breachline-sync-lambda-execution${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -16,7 +16,7 @@ resource "aws_iam_role" "lambda_execution" {
   })
 
   tags = {
-    Name = "breachline-sync-lambda-execution"
+    Name = "breachline-sync-lambda-execution${local.suffix}"
   }
 }
 
@@ -34,7 +34,7 @@ resource "aws_iam_role_policy_attachment" "lambda_xray" {
 
 # DynamoDB access policy
 resource "aws_iam_role_policy" "lambda_dynamodb" {
-  name = "breachline-sync-lambda-dynamodb"
+  name = "breachline-sync-lambda-dynamodb${local.suffix}"
   role = aws_iam_role.lambda_execution.id
 
   policy = jsonencode({
@@ -75,7 +75,7 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
 
 # SES access policy for sending emails
 resource "aws_iam_role_policy" "lambda_ses" {
-  name = "breachline-sync-lambda-ses"
+  name = "breachline-sync-lambda-ses${local.suffix}"
   role = aws_iam_role.lambda_execution.id
 
   policy = jsonencode({
@@ -100,7 +100,7 @@ resource "aws_iam_role_policy" "lambda_ses" {
 
 # Secrets Manager access policy
 resource "aws_iam_role_policy" "lambda_secrets" {
-  name = "breachline-sync-lambda-secrets"
+  name = "breachline-sync-lambda-secrets${local.suffix}"
   role = aws_iam_role.lambda_execution.id
 
   policy = jsonencode({
@@ -123,7 +123,7 @@ resource "aws_iam_role_policy" "lambda_secrets" {
 
 # IAM role for API Gateway to invoke Lambda authorizer
 resource "aws_iam_role" "api_gateway_cloudwatch" {
-  name = "breachline-sync-api-gateway-cloudwatch"
+  name = "breachline-sync-api-gateway-cloudwatch${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -139,7 +139,7 @@ resource "aws_iam_role" "api_gateway_cloudwatch" {
   })
 
   tags = {
-    Name = "breachline-sync-api-gateway-cloudwatch"
+    Name = "breachline-sync-api-gateway-cloudwatch${local.suffix}"
   }
 }
 

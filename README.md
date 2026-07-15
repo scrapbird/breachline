@@ -32,3 +32,25 @@ The repository is structured as follows:
 - [infra](./infra): Infrastructure terraform templates and supporting code
 - [scripts](./scripts): Various helper scripts for generating licenses, test files and automating simple tasks go here
 
+# Deploying Infrastructure
+
+All infrastructure (`infra/payment-api`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`. A single committed `config.yml` (non-secret) plus `secrets.vault.yml` (ansible-vault encrypted) is the source of truth; `make render` fans them out to a sourced `secrets.env` and per-component `<env>.tfvars`.
+
+Two environments live side by side in the **same AWS account** — every resource name and Terraform state key is suffixed `-dev` / `-prod`. `dev` points at the Stripe **sandbox**, `prod` at the **live** Stripe API. Pick the target with `ENV=dev|prod` (default `dev`).
+
+```sh
+make init                 # bootstrap config.yml + secrets.vault.yml + .vault-password-file
+                          # (on a new machine, restore .vault-password-file from 1Password first)
+make edit-secrets         # set vault.environments.<env>.stripe.{api_key,webhook_secret}
+make deploy ENV=dev       # render + build lambdas + terraform apply the dev stack
+make deploy-prod          # shorthand for `make deploy ENV=prod`
+make help                 # list every target
+```
+
+- **Non-secret** per-environment config (domains, SES addresses, lambda sizing, component on/off toggles) lives in `config.yml`.
+- **Secrets** (Stripe keys, plus auto-generated license + JWT ECDSA keypairs) live in `secrets.vault.yml`; they are wired straight into AWS Secrets Manager by Terraform, so a deploy needs no manual `put-secret-value` step.
+- Rendered `secrets.env` and `infra/<component>/<env>.tfvars` are gitignored; `config.yml` and the encrypted `secrets.vault.yml` are committed. The vault password file (`.vault-password-file`) is **not** committed — keep it in 1Password.
+- Deploys use the standard AWS credential chain, so run `aws sso login` (or export creds) before `make deploy`.
+
+> Note: the SES domain identity for `breachline.app` is a single account-level resource, so only the `prod` stack declares/verifies it; `dev` sends from the same verified domain (`noreply-dev@breachline.app`).
+

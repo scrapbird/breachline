@@ -11,9 +11,14 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Environment name (dev, staging, prod)"
+  description = "Environment name (dev, prod). Suffixed onto every resource name + tfstate key so dev and prod coexist in one account."
   type        = string
-  default     = "prod"
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "environment must be dev or prod."
+  }
 }
 
 variable "api_domain_name" {
@@ -36,6 +41,18 @@ variable "ses_verified_domain" {
 
 variable "license_public_key" {
   description = "ECDSA public key for license validation (PEM format)"
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_private_key" {
+  description = "ECDSA private key (PEM) for signing session JWTs"
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_public_key" {
+  description = "ECDSA public key (PEM) for verifying session JWTs"
   type        = string
   sensitive   = true
 }

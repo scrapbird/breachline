@@ -8,12 +8,14 @@ terraform {
     }
   }
 
+  # State key is supplied per-environment at init time via -backend-config,
+  # e.g. -backend-config="key=website/dev/terraform.tfstate". See the root
+  # Makefile's tf-website target.
   backend "s3" {
-    bucket         = "scrappy-tfstate"
-    key            = "website/terraform.tfstate"
-    region         = "ap-southeast-2"
-    encrypt        = true
-    dynamodb_table = "terraform-state-lock"
+    bucket       = "scrappy-tfstate"
+    region       = "ap-southeast-2"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 

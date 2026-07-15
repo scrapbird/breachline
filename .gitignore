@@ -36,3 +36,10 @@ terraform.rc
 .terraform.lock.hcl
 
 *.zip
+
+# Centralized config/secrets machinery. config.yml + secrets.vault.yml are
+# COMMITTED; the rendered outputs + vault password below are not.
+# (config.yml is non-secret; secrets.vault.yml is ansible-vault encrypted.)
+secrets.env
+.vault-password-file
+__pycache__/
