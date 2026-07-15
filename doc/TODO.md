@@ -52,6 +52,7 @@
 
 - [ ] Add yubikey 2 to cloudflare MFA
 - [ ] Set up garble for build obfuscation
+- [ ] Set up code signing: Sectigo for Windows Authenticode (~$10-15/mo), Apple Developer Program for macOS ($99/yr), GPG signatures for Linux (free)
 
 ## Features
 
