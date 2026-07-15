@@ -2,13 +2,10 @@
 title: "Welcome to BreachLine"
 date: 2025-01-01T00:00:00Z
 draft: false
+hero_heading: "See the whole timeline. Find the breach faster."
+hero_subheading: "BreachLine is a powerful time-series analysis tool built for cyber incident response — load gigabytes of audit logs and security events, filter with a fast query language, and uncover critical events in minutes."
+hero_image: "/images/breachline-window.png"
 ---
-
-A powerful tool for visualizing and analyzing time series data during cyber incident response investigations.
-
-BreachLine is built for speed and ease of use when investigating audit logs, security events, and other timestamped data. Handle massive datasets with confidence and uncover critical insights faster.
-
-<img src="/images/breachline-window.png" alt="BreachLine Application Window" style="width: 100%; max-width: 100%; height: auto;">
 
 ## Key Capabilities
 

@@ -5,19 +5,23 @@
     box-sizing: border-box;
 }
 
-@font-face {
-    font-family: "Nunito";
-    font-style: normal;
-    font-weight: 400;
-    src: local(""),
-    url("https://fonts.gstatic.com/s/nunito/v16/XRXV3I6Li01BKofINeaE.woff2") format("woff2");
+html {
+    scroll-behavior: smooth;
 }
 
 body {
-    font-family: "Nunito", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    line-height: 1.6;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.65;
     color: #eee;
     background-color: #2E3436;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+::selection {
+    background: rgba(58, 166, 102, 0.35);
+    color: #fff;
 }
 
 .container {
@@ -41,8 +45,10 @@ nav .container {
 }
 
 .logo {
+    font-family: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 1.8rem;
     font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: 0;
     display: flex;
     align-items: center;
@@ -63,20 +69,229 @@ nav .container {
 
 .nav-menu {
     display: flex;
+    align-items: center;
     list-style: none;
     gap: 2rem;
     margin: 0;
 }
 
 .nav-menu a {
+    position: relative;
     color: white;
     text-decoration: none;
     font-weight: 500;
-    transition: opacity 0.3s;
 }
 
-.nav-menu a:hover {
-    opacity: 0.8;
+.nav-menu a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -4px;
+    height: 2px;
+    background: #3aa666;
+    border-radius: 2px;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s ease;
+}
+
+.nav-menu a:hover::after,
+.nav-menu a.active::after {
+    transform: scaleX(1);
+}
+
+.nav-menu a.active {
+    color: #4bc57f;
+}
+
+/* Purchase — prominent CTA button in the nav */
+.nav-menu a[href="/purchase/"] {
+    background: #3aa666;
+    color: #fff;
+    padding: 0.5rem 1.25rem;
+    border: 1px solid #4bc57f;
+    border-radius: 8px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(58, 166, 102, 0.3);
+    transition: all 0.2s ease;
+}
+
+.nav-menu a[href="/purchase/"]:hover {
+    background: #4bc57f;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(58, 166, 102, 0.4);
+}
+
+.nav-menu a[href="/purchase/"].active {
+    color: #fff;
+}
+
+.nav-menu a[href="/purchase/"]::after {
+    display: none;
+}
+
+/* Hero */
+.hero {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 3.5rem;
+    align-items: center;
+    padding: 3.5rem 0 4rem 0;
+}
+
+.hero-title {
+    font-family: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 3.25rem;
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin-bottom: 1.25rem;
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: #bbb;
+    max-width: 46ch;
+    margin-bottom: 2rem;
+}
+
+.hero-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+}
+
+.hero-cta .purchase-btn {
+    margin: 0;
+}
+
+.hero-image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.hero-image-trigger {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: zoom-in;
+    border-radius: 12px;
+}
+
+.hero-image-trigger img {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hero-image-trigger:hover img {
+    transform: translateY(-3px);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.55);
+}
+
+.hero-image-hint {
+    position: absolute;
+    bottom: 0.9rem;
+    right: 0.9rem;
+    background: rgba(46, 52, 54, 0.85);
+    color: #eee;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.hero-image-trigger:hover .hero-image-hint,
+.hero-image-trigger:focus-visible .hero-image-hint {
+    opacity: 1;
+}
+
+/* Screenshot lightbox dialog */
+.image-dialog {
+    /* margin:auto restores centering — the global `* { margin: 0 }` reset
+       overrides the UA stylesheet's default that centers a modal dialog. */
+    margin: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    max-width: 94vw;
+    max-height: 94vh;
+    overflow: visible;
+}
+
+.image-dialog::backdrop {
+    background: rgba(10, 12, 12, 0.82);
+    backdrop-filter: blur(2px);
+}
+
+.image-dialog img {
+    display: block;
+    max-width: 94vw;
+    max-height: 94vh;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.image-dialog-close {
+    position: absolute;
+    top: -0.75rem;
+    right: -0.75rem;
+    width: 2.4rem;
+    height: 2.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #fff;
+    background: #3aa666;
+    border: 1px solid #4bc57f;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.image-dialog-close:hover {
+    background: #4bc57f;
+    transform: scale(1.05);
+}
+
+.btn-secondary {
+    display: inline-block;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border-radius: 8px;
+    border: 1px solid #4bc57f;
+    color: #4bc57f;
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(58, 166, 102, 0.12);
+    color: #4bc57f;
+    text-decoration: none;
+    transform: translateY(-2px);
 }
 
 /* Main Content */
@@ -86,15 +301,24 @@ main {
 }
 
 article, .home {
-    background: #2E3436;
-    padding: 2rem;
-    border-radius: 8px;
+    background: #323A3C;
+    padding: 2.25rem 2.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28);
+}
+
+h1, h2, h3 {
+    font-family: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 700;
 }
 
 h1 {
     color: #eee;
     margin-bottom: 1.5rem;
-    font-size: 2.5rem;
+    font-size: 2.6rem;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
 }
 
 h2 {
@@ -102,6 +326,8 @@ h2 {
     margin-top: 2rem;
     margin-bottom: 1rem;
     font-size: 1.8rem;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
 }
 
 h3 {
@@ -109,6 +335,7 @@ h3 {
     margin-top: 1.5rem;
     margin-bottom: 0.75rem;
     font-size: 1.4rem;
+    line-height: 1.3;
 }
 
 p {
@@ -126,9 +353,54 @@ a:hover {
     text-decoration: underline;
 }
 
+a:focus-visible,
+.purchase-btn:focus-visible {
+    outline: 2px solid #4bc57f;
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
 ul {
     margin-left: 2rem;
     margin-bottom: 1rem;
+}
+
+/* Constrain reading measure for long-form prose (not cards/grids) */
+article > p,
+article > ul,
+.home > p,
+.home > ul {
+    max-width: 72ch;
+}
+
+/* Code & data — monospace accent ties the site to the product */
+code, pre, kbd, samp {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+code {
+    background: rgba(58, 166, 102, 0.12);
+    color: #4bc57f;
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+pre {
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+pre code {
+    background: none;
+    color: #eee;
+    padding: 0;
+    font-size: 0.9rem;
 }
 
 /* Footer */
@@ -351,6 +623,28 @@ footer p {
         text-align: center;
     }
 
+    .hero {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        padding: 2rem 0 2.5rem 0;
+    }
+
+    .hero-title {
+        font-size: 2.25rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.1rem;
+    }
+
+    .hero-cta {
+        justify-content: flex-start;
+    }
+
+    article, .home {
+        padding: 1.75rem 1.5rem;
+    }
+
     h1 {
         font-size: 2rem;
     }
@@ -398,8 +692,10 @@ footer p {
 
 .post-meta {
     display: block;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     color: #999;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
     margin-bottom: 0.75rem;
 }
 

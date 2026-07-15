@@ -1,5 +1,31 @@
 {{ define "main" }}
+<section class="hero">
+    <div class="hero-content">
+        <h1 class="hero-title">{{ .Params.hero_heading | default .Title }}</h1>
+        {{ with .Params.hero_subheading }}<p class="hero-subtitle">{{ . }}</p>{{ end }}
+        <div class="hero-cta">
+            <a href="/download/" class="purchase-btn">Download BreachLine</a>
+            <a href="/purchase/" class="purchase-btn">Purchase</a>
+            <a href="/features/" class="btn-secondary">Explore features</a>
+        </div>
+    </div>
+    {{ with .Params.hero_image }}
+    <div class="hero-image">
+        <button type="button" class="hero-image-trigger" aria-haspopup="dialog" aria-label="Enlarge screenshot">
+            <img src="{{ . | relURL }}" alt="BreachLine application window">
+            <span class="hero-image-hint">Click to enlarge</span>
+        </button>
+    </div>
+    {{ end }}
+</section>
+{{ with .Params.hero_image }}
+<dialog class="image-dialog" id="screenshot-dialog">
+    <button type="button" class="image-dialog-close" aria-label="Close">&times;</button>
+    <img src="{{ . | relURL }}" alt="BreachLine application window — enlarged view">
+</dialog>
+{{ end }}
 <div class="home">
     {{ .Content }}
 </div>
+<script src="{{ "js/lightbox.js" | relURL }}" defer></script>
 {{ end }}

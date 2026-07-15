@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ .Site.Params.description }}">
     <title>{{ .Title }} | {{ .Site.Title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
     <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
     <!-- Stripe.js -->
     <script src="https://js.stripe.com/v3/"></script>
@@ -16,8 +19,11 @@
             <div class="container">
                 <a href="/" class="logo"><img src="{{ "images/logo-universal.png" | relURL }}" alt="BreachLine Logo" class="logo-img">{{ .Site.Title }}</a>
                 <ul class="nav-menu">
+                    {{ $rel := .RelPermalink }}
                     {{ range .Site.Menus.main }}
-                    <li><a href="{{ .URL }}">{{ .Name }}</a></li>
+                    {{ $u := .URL }}
+                    {{ $active := cond (eq $u "/") (eq $rel "/") (hasPrefix $rel $u) }}
+                    <li><a href="{{ $u }}"{{ if $active }} class="active" aria-current="page"{{ end }}>{{ .Name }}</a></li>
                     {{ end }}
                 </ul>
             </div>
