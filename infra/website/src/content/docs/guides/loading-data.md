@@ -10,9 +10,9 @@ logical dataset.
 
 ## Supported formats
 
-- **CSV** — headers are detected automatically; delimiter is inferred.
-- **XLSX** — the first worksheet is loaded by default.
-- **JSON** — arrays of objects, or newline-delimited JSON (NDJSON).
+- **CSV** - headers are detected automatically; delimiter is inferred.
+- **XLSX** - the first worksheet is loaded by default.
+- **JSON** - arrays of objects, or newline-delimited JSON (NDJSON).
 
 ## Opening a directory
 

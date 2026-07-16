@@ -14,5 +14,5 @@ docs. If you're new here, start with [Installation](/docs/getting-started/instal
 
 ## Sections
 
-- **Getting Started** — install BreachLine and load your first file.
-- **Guides** — deeper reference material on the query language and data loading.
+- **Getting Started** - install BreachLine and load your first file.
+- **Guides** - deeper reference material on the query language and data loading.

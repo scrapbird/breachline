@@ -11,7 +11,7 @@ about two minutes.
 ## 1. Open a file
 
 Choose **File → Open** and select a CSV, XLSX, or JSON file. You can also open an
-entire directory to view many files as a single dataset — handy for CloudTrail
+entire directory to view many files as a single dataset - handy for CloudTrail
 backups split across hundreds of JSON files.
 
 ## 2. Pick the timestamp field

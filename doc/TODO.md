@@ -51,11 +51,11 @@
 ## Security/Deployment
 
 - [ ] Add yubikey 2 to cloudflare MFA
-- [ ] ⚠️ **garble vs AV trust conflict** — obfuscation is itself an AV malware heuristic + Go binaries already trigger Defender ML false positives. garble randomizes each build (pin `GARBLE_SEED` or every release resets SmartScreen reputation + Defender FP-clearing). Decide if obfuscation is worth the distribution cost; if kept, sign/Store-distribute after obfuscating.
+- [ ] ⚠️ **garble vs AV trust conflict** - obfuscation is itself an AV malware heuristic + Go binaries already trigger Defender ML false positives. garble randomizes each build (pin `GARBLE_SEED` or every release resets SmartScreen reputation + Defender FP-clearing). Decide if obfuscation is worth the distribution cost; if kept, sign/Store-distribute after obfuscating.
 - [ ] Set up code signing / trusted distribution (NZ-based individual):
-  - **Windows: Microsoft Store** — cheapest, registration now **free** (individuals Sept 2025, companies May 2026), MS signs for free, Store apps bypass SmartScreen. Use **own commerce** (keep existing Stripe + .lic flow) → keep 100%, MS takes 0%. Cost = MSIX packaging effort (Wails ships NSIS, not MSIX) + `broadFileSystemAccess` capability for file reads. Only buy a Windows cert (~$200/yr OV) if a signed *direct-download* .exe is also wanted (OV==EV now for SmartScreen; EV no longer instant, skip EV).
-  - **macOS: Apple Developer Program ($99/yr)** — unavoidable. Notarized direct-download (Mac App Store needs sandboxing a forensics tool can't accept; Homebrew cask now *requires* notarization by Sept 2026 too).
-  - **Linux: GPG signatures** — free.
+  - **Windows: Microsoft Store** - cheapest, registration now **free** (individuals Sept 2025, companies May 2026), MS signs for free, Store apps bypass SmartScreen. Use **own commerce** (keep existing Stripe + .lic flow) → keep 100%, MS takes 0%. Cost = MSIX packaging effort (Wails ships NSIS, not MSIX) + `broadFileSystemAccess` capability for file reads. Only buy a Windows cert (~$200/yr OV) if a signed *direct-download* .exe is also wanted (OV==EV now for SmartScreen; EV no longer instant, skip EV).
+  - **macOS: Apple Developer Program ($99/yr)** - unavoidable. Notarized direct-download (Mac App Store needs sandboxing a forensics tool can't accept; Homebrew cask now *requires* notarization by Sept 2026 too).
+  - **Linux: GPG signatures** - free.
   - Azure Trusted/Artifact Signing ruled out: Windows-only + NZ not in supported countries.
   - Free AV lever regardless: submit binaries to Microsoft Defender WDSI false-positive portal (+ other vendors).
   - Total minimum ~**$99/yr** (Apple only) if Windows goes Store-first.

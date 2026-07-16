@@ -67,7 +67,7 @@ nav .container {
     width: auto;
 }
 
-/* Hamburger toggle — hidden on desktop, shown at mobile widths */
+/* Hamburger toggle - hidden on desktop, shown at mobile widths */
 .nav-toggle {
     display: none;
     flex-direction: column;
@@ -141,7 +141,7 @@ nav .container {
     color: #4bc57f;
 }
 
-/* Purchase — prominent CTA button in the nav */
+/* Purchase - prominent CTA button in the nav */
 .nav-menu a[href="/purchase/"] {
     background: #3aa666;
     color: #fff;
@@ -258,7 +258,7 @@ nav .container {
 
 /* Screenshot lightbox dialog */
 .image-dialog {
-    /* margin:auto restores centering — the global `* { margin: 0 }` reset
+    /* margin:auto restores centering - the global `* { margin: 0 }` reset
        overrides the UA stylesheet's default that centers a modal dialog. */
     margin: auto;
     padding: 0;
@@ -409,7 +409,7 @@ article > ul,
     max-width: 72ch;
 }
 
-/* Code & data — monospace accent ties the site to the product */
+/* Code & data - monospace accent ties the site to the product */
 code, pre, kbd, samp {
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -771,7 +771,7 @@ footer p {
     margin-top: 2rem;
 }
 
-/* Docs — two-column layout with a directory tree sidebar */
+/* Docs - two-column layout with a directory tree sidebar */
 .docs-layout {
     display: grid;
     grid-template-columns: 240px 1fr;

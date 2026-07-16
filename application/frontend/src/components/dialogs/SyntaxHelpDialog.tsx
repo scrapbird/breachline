@@ -200,10 +200,10 @@ const SyntaxHelpDialog: React.FC<SyntaxHelpDialogProps> = ({ show, onClose }) =>
                         <section>
                             <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6, color: '#cfe' }}>Time Range Filters</h3>
                             <div style={{ fontSize: 13, lineHeight: 1.6, opacity: 0.9 }}>
-                                <p style={{ margin: '4px 0' }}><strong>after</strong> — events after a time:</p>
+                                <p style={{ margin: '4px 0' }}><strong>after</strong> - events after a time:</p>
                                 <code style={codeBlockStyle}>after 2024-01-15</code>
                                 <code style={codeBlockStyle}>after '2024-01-15 10:30:00'</code>
-                                <p style={{ margin: '10px 0 4px' }}><strong>before</strong> — events before a time:</p>
+                                <p style={{ margin: '10px 0 4px' }}><strong>before</strong> - events before a time:</p>
                                 <code style={codeBlockStyle}>before 2024-01-16</code>
                                 <p style={{ margin: '10px 0 4px' }}>Combine for a range:</p>
                                 <code style={codeBlockStyle}>after 2024-01-15 before 2024-01-16</code>
