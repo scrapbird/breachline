@@ -31,6 +31,12 @@
                     {{ $active := cond (eq $u "/") (eq $rel "/") (hasPrefix $rel $u) }}
                     <li><a href="{{ $u }}"{{ if $active }} class="active" aria-current="page"{{ end }}>{{ .Name }}</a></li>
                     {{ end }}
+                    {{ if hasPrefix .RelPermalink "/docs/" }}
+                    <li class="nav-docs-tree">
+                        <span class="nav-docs-heading">Documentation</span>
+                        {{ partial "docs-tree.html" . }}
+                    </li>
+                    {{ end }}
                 </ul>
             </div>
         </nav>

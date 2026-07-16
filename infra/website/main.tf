@@ -11,8 +11,7 @@ resource "aws_s3_bucket" "website" {
   tags = merge(
     var.tags,
     {
-      Name        = local.s3_bucket_name
-      Environment = var.environment
+      Name = local.s3_bucket_name
     }
   )
 }
@@ -147,8 +146,7 @@ resource "aws_cloudfront_distribution" "website" {
   tags = merge(
     var.tags,
     {
-      Name        = "${var.project_name}-website-cdn"
-      Environment = var.environment
+      Name = "${var.project_name}-website-cdn"
     }
   )
 }
@@ -168,8 +166,7 @@ resource "aws_acm_certificate" "website" {
   tags = merge(
     var.tags,
     {
-      Name        = local.full_domain
-      Environment = var.environment
+      Name = local.full_domain
     }
   )
 }

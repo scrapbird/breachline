@@ -13,8 +13,8 @@
 # ============================================================================
 config:
   aws:
-    region: "ap-southeast-2"
-    tfstate_bucket: "scrappy-tfstate"
+    region: "us-east-2"
+    tfstate_bucket: "breachline-state-uf308ht4"
 
   # Shared defaults applied under every environment. A key set inside an
   # environments.<env>.<component> block overrides the same key here.

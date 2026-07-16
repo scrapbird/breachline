@@ -12,8 +12,8 @@ terraform {
   # e.g. -backend-config="key=website/dev/terraform.tfstate". See the root
   # Makefile's tf-website target.
   backend "s3" {
-    bucket       = "scrappy-tfstate"
-    region       = "ap-southeast-2"
+    bucket       = "breachline-state-uf308ht4"
+    region       = "us-east-2"
     encrypt      = true
     use_lockfile = true
   }
@@ -24,8 +24,9 @@ provider "aws" {
 
   default_tags {
     tags = {
-      project   = "breachline"
-      component = "website"
+      project     = "breachline"
+      component   = "website"
+      environment = var.environment
     }
   }
 }
@@ -37,8 +38,9 @@ provider "aws" {
 
   default_tags {
     tags = {
-      project   = "breachline"
-      component = "website"
+      project     = "breachline"
+      component   = "website"
+      environment = var.environment
     }
   }
 }

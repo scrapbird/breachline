@@ -1,0 +1,29 @@
+{{/* Directory-structured docs navigation. Context (.) is the current page. */}}
+{{ $current := . }}
+{{ with site.GetPage "/docs" }}
+<nav class="docs-tree" aria-label="Documentation">
+    <ul>
+        <li>
+            <a href="{{ .RelPermalink }}"{{ if eq $current.RelPermalink .RelPermalink }} class="active" aria-current="page"{{ end }}>Overview</a>
+        </li>
+        {{ range .Pages }}
+        {{ if .IsSection }}
+        <li class="docs-tree-section{{ if hasPrefix $current.RelPermalink .RelPermalink }} is-open{{ end }}">
+            <a class="docs-tree-heading{{ if eq $current.RelPermalink .RelPermalink }} active{{ end }}" href="{{ .RelPermalink }}">{{ .Title }}</a>
+            <ul>
+                {{ range .Pages }}
+                <li>
+                    <a href="{{ .RelPermalink }}"{{ if eq $current.RelPermalink .RelPermalink }} class="active" aria-current="page"{{ end }}>{{ .Title }}</a>
+                </li>
+                {{ end }}
+            </ul>
+        </li>
+        {{ else }}
+        <li>
+            <a href="{{ .RelPermalink }}"{{ if eq $current.RelPermalink .RelPermalink }} class="active" aria-current="page"{{ end }}>{{ .Title }}</a>
+        </li>
+        {{ end }}
+        {{ end }}
+    </ul>
+</nav>
+{{ end }}

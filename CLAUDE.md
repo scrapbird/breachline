@@ -12,6 +12,11 @@ Any infrastructure definitions should be placed inside their own directory insid
 
 Any tools created should have words in their directory name separated by - characters. Example: this-is-a-tool
 
+# Tasks
+
+- All currently open tasks are contained in `doc/TODO.md`
+- Tasks should be completed from this todo list and checked off as you complete them
+
 # Architecture
 
 ## Main application
@@ -80,7 +85,7 @@ When writing short scripts that are to be run as a standalone application:
 - Always use terraform for managing servers / lambda functions etc
 - All AWS resources created by the terraform template should have a tag named project with the value breachline
 - Terraform state files should always be stored in the AWS
-S3 bucket named `scrappy-tfstate` in the ap-southeast-2 region. The state should always be contained in folder within the bucket named after the infrastructure component, and (for components with dev/prod environments) scoped by environment, such as `payment-api/dev/terraform.tfstate` and `payment-api/prod/terraform.tfstate`
+S3 bucket named `breachline-state-uf308ht4` in the us-east-2 region. The state should always be contained in folder within the bucket named after the infrastructure component, and (for components with dev/prod environments) scoped by environment, such as `payment-api/dev/terraform.tfstate` and `payment-api/prod/terraform.tfstate`
 - Always use a lockfile in the same bucket folder as the tfstate file for the state locking
 - Always use a Go lambda function for tasks which should run on a schedule or are not interactive. If unsure, ask for clarification before continuing
 - Always use ansible for provisioning servers

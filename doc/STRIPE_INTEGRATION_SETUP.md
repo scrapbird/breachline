@@ -126,7 +126,7 @@ cp terraform.tfvars.example terraform.tfvars
 Edit `terraform.tfvars`:
 
 ```hcl
-aws_region = "ap-southeast-2"
+aws_region = "us-east-2"
 
 # From Step 2
 stripe_secret_key = "sk_test_YOUR_SECRET_KEY_HERE"
@@ -152,7 +152,7 @@ terraform apply
 
 # Save the webhook URL
 terraform output webhook_url
-# Example output: https://abc123.execute-api.ap-southeast-2.amazonaws.com/prod/webhook
+# Example output: https://abc123.execute-api.us-east-2.amazonaws.com/prod/webhook
 ```
 
 ### 5. Configure Stripe Webhook

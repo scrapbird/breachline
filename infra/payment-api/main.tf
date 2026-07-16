@@ -16,8 +16,8 @@ terraform {
   # e.g. -backend-config="key=payment-api/dev/terraform.tfstate". See the root
   # Makefile's tf-payment-api target.
   backend "s3" {
-    bucket       = "scrappy-tfstate"
-    region       = "ap-southeast-2"
+    bucket       = "breachline-state-uf308ht4"
+    region       = "us-east-2"
     use_lockfile = true
   }
 }

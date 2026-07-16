@@ -95,7 +95,7 @@ This infrastructure manages three Lambda functions:
 3. **Terraform** >= 1.0
 4. **Go** >= 1.21 (for building Lambda functions)
 5. **Stripe Account** with API keys
-6. **S3 State Bucket**: `scrappy-tfstate` must exist in `ap-southeast-2`
+6. **S3 State Bucket**: `breachline-state-uf308ht4` must exist in `us-east-2`
 
 ## Setup Instructions
 
@@ -120,7 +120,7 @@ cp terraform.tfvars.example terraform.tfvars
 Edit `terraform.tfvars`:
 
 ```hcl
-aws_region = "ap-southeast-2"
+aws_region = "us-east-2"
 ```
 
 ### 3. Build Lambda Functions
@@ -159,7 +159,7 @@ PRIVATE_KEY=$(cat ../../scripts/license_private.pem)
 aws secretsmanager put-secret-value \
     --secret-id breachline-license-signing-key \
     --secret-string "$PRIVATE_KEY" \
-    --region ap-southeast-2
+    --region us-east-2
 ```
 
 **Stripe API Key:**
@@ -168,7 +168,7 @@ aws secretsmanager put-secret-value \
 aws secretsmanager put-secret-value \
     --secret-id breachline-stripe-api-key \
     --secret-string "sk_test_YOUR_STRIPE_API_KEY_HERE" \
-    --region ap-southeast-2
+    --region us-east-2
 ```
 
 **Stripe Webhook Secret:**
@@ -178,7 +178,7 @@ aws secretsmanager put-secret-value \
 aws secretsmanager put-secret-value \
     --secret-id breachline-stripe-webhook-secret \
     --secret-string "whsec_YOUR_WEBHOOK_SECRET_HERE" \
-    --region ap-southeast-2
+    --region us-east-2
 ```
 
 ### 6. Understanding Terraform Outputs
@@ -192,7 +192,7 @@ terraform output webhook_url
 
 # API Gateway URL - FOR REFERENCE ONLY (direct access blocked)
 terraform output api_gateway_url
-# Example: https://abc123.execute-api.ap-southeast-2.amazonaws.com/prod/webhook
+# Example: https://abc123.execute-api.us-east-2.amazonaws.com/prod/webhook
 ```
 
 **Which URL to use:**
@@ -226,7 +226,7 @@ Then:
    aws secretsmanager put-secret-value \
        --secret-id breachline-stripe-webhook-secret \
        --secret-string "whsec_YOUR_WEBHOOK_SECRET_HERE" \
-       --region ap-southeast-2
+       --region us-east-2
    ```
 
 ## Usage
@@ -240,9 +240,9 @@ For testing purposes, you can publish a message to SNS to trigger license genera
 ```bash
 # Publish message to SNS topic
 aws sns publish \
-    --topic-arn arn:aws:sns:ap-southeast-2:$(aws sts get-caller-identity --query Account --output text):breachline-license-generation \
+    --topic-arn arn:aws:sns:us-east-2:$(aws sts get-caller-identity --query Account --output text):breachline-license-generation \
     --message '{"email":"customer@example.com","days":365}' \
-    --region ap-southeast-2
+    --region us-east-2
 ```
 
 This will trigger the License Generator Lambda, which will:
@@ -253,10 +253,10 @@ This will trigger the License Generator Lambda, which will:
 You can view the results in CloudWatch Logs:
 ```bash
 # View license generator logs
-aws logs tail /aws/lambda/breachline-license-generator --follow --region ap-southeast-2
+aws logs tail /aws/lambda/breachline-license-generator --follow --region us-east-2
 
 # View license sender logs
-aws logs tail /aws/lambda/breachline-license-sender --follow --region ap-southeast-2
+aws logs tail /aws/lambda/breachline-license-sender --follow --region us-east-2
 ```
 
 ### Stripe Webhook
@@ -338,7 +338,7 @@ Then rebuild and redeploy.
    aws secretsmanager put-secret-value \
        --secret-id breachline-stripe-webhook-secret \
        --secret-string "whsec_YOUR_WEBHOOK_SECRET_HERE" \
-       --region ap-southeast-2
+       --region us-east-2
    ```
 3. Lambda will automatically use the new secret on next cold start
 
@@ -446,12 +446,12 @@ rm -f license-generator.zip stripe-webhook.zip
 
 1. **Verify the sender email** in Amazon SES:
    ```bash
-   aws ses verify-email-identity --email-address noreply@breachline.app --region ap-southeast-2
+   aws ses verify-email-identity --email-address noreply@breachline.app --region us-east-2
    ```
 
 2. **Check verification status**:
    ```bash
-   aws ses get-identity-verification-attributes --identities noreply@breachline.app --region ap-southeast-2
+   aws ses get-identity-verification-attributes --identities noreply@breachline.app --region us-east-2
    ```
 
 3. **Move out of SES sandbox** (for production):
@@ -465,7 +465,7 @@ rm -f license-generator.zip stripe-webhook.zip
        --from noreply@breachline.app \
        --destination ToAddresses=your-email@example.com \
        --message Subject={Data="Test"},Body={Text={Data="Test email"}} \
-       --region ap-southeast-2
+       --region us-east-2
    ```
 
 ## Updating

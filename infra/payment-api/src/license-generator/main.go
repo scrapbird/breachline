@@ -39,7 +39,7 @@ type LicenseResponse struct {
 var (
 	secretsManagerClient *secretsmanager.Client
 	snsClient            *sns.Client
-	secretsManagerARN    = "arn:aws:secretsmanager:ap-southeast-2:*:secret:breachline-license-signing-key*"
+	secretsManagerARN    = "arn:aws:secretsmanager:us-east-2:*:secret:breachline-license-signing-key*"
 	licenseDeliveryTopic string
 	logger               *slog.Logger
 )

@@ -86,7 +86,7 @@ For detailed setup instructions, see `/doc/STRIPE_INTEGRATION_SETUP.md`.
 2. **AWS CLI**: Configured with credentials
 3. **Terraform**: Version 1.0 or higher
 4. **Hugo**: For building the website (see above)
-5. **S3 State Bucket**: The `scrappy-tfstate` bucket must exist in `ap-southeast-2`
+5. **S3 State Bucket**: The `breachline-state-uf308ht4` bucket must exist in `us-east-2`
 
 ### Creating the State Backend Resources
 
@@ -94,13 +94,13 @@ If you haven't already, create the required backend resources:
 
 ```bash
 # Create the S3 bucket for state storage
-aws s3 mb s3://scrappy-tfstate --region ap-southeast-2
+aws s3 mb s3://breachline-state-uf308ht4 --region us-east-2
 
 # Enable versioning on the state bucket
 aws s3api put-bucket-versioning \
-  --bucket scrappy-tfstate \
+  --bucket breachline-state-uf308ht4 \
   --versioning-configuration Status=Enabled \
-  --region ap-southeast-2
+  --region us-east-2
 ```
 
 ## Usage

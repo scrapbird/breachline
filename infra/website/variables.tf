@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region for resources"
   type        = string
-  default     = "ap-southeast-2"
+  default     = "us-east-2"
 }
 
 variable "domain_name" {
@@ -17,9 +17,9 @@ variable "subdomain" {
 }
 
 variable "environment" {
-  description = "Environment name (e.g., production, staging)"
+  description = "Environment name (dev, prod). Suffixed onto every resource name + tfstate key so dev and prod coexist in one account."
   type        = string
-  default     = "production"
+  default     = "dev"
 }
 
 variable "project_name" {

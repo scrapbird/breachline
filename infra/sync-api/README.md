@@ -44,7 +44,7 @@ For detailed technical documentation, including API specifications, authenticati
 
 Deployment is managed using Terraform. See the terraform files in this directory for infrastructure definitions.
 
-**Note**: All AWS resources are tagged with `project: breachline` and use the `ap-southeast-2` (Sydney) region.
+**Note**: All AWS resources are tagged with `project: breachline` and use the `us-east-2` (Sydney) region.
 
 ## Development
 
@@ -57,7 +57,7 @@ Each Lambda function is contained in its own subdirectory within the `src/lambda
 
 ## State Management
 
-Terraform state is stored in the `scrappy-tfstate` S3 bucket in the `ap-southeast-2` region under the path:
+Terraform state is stored in the `breachline-state-uf308ht4` S3 bucket in the `us-east-2` region under the path:
 ```
 sync-api/terraform.tfstate
 ```

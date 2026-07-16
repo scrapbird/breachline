@@ -676,6 +676,49 @@ footer p {
         display: inline-block;
     }
 
+    /* Docs: hide the desktop sidebar; surface the tree in the nav menu */
+    .docs-layout {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .docs-sidebar {
+        display: none;
+    }
+
+    .nav-docs-tree {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-top: 0.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #444;
+    }
+
+    .nav-docs-heading {
+        display: block;
+        padding: 0 0.6rem;
+        margin-bottom: 0.5rem;
+        color: #999;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .nav-menu .docs-tree a {
+        color: #cfd3d4;
+        font-weight: 500;
+    }
+
+    .nav-menu .docs-tree a.active {
+        color: #4bc57f;
+    }
+
+    .nav-menu .docs-tree a::after {
+        display: none;
+    }
+
     .hero {
         grid-template-columns: 1fr;
         gap: 2rem;
@@ -769,4 +812,97 @@ footer p {
 
 .post-back {
     margin-top: 2rem;
+}
+
+/* Docs — two-column layout with a directory tree sidebar */
+.docs-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 2.5rem;
+    align-items: start;
+}
+
+.docs-content {
+    min-width: 0;
+}
+
+.docs-sidebar {
+    position: sticky;
+    top: 1.5rem;
+    align-self: start;
+}
+
+.docs-tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.docs-tree > ul > li {
+    margin-bottom: 0.2rem;
+}
+
+.docs-tree a {
+    display: block;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    color: #cfd3d4;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.docs-tree a:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    text-decoration: none;
+}
+
+.docs-tree a.active {
+    background: rgba(58, 166, 102, 0.15);
+    color: #4bc57f;
+    font-weight: 600;
+}
+
+.docs-tree-heading {
+    color: #eee;
+    font-weight: 600;
+}
+
+.docs-tree-section > ul {
+    margin: 0.15rem 0 0.5rem 0;
+    padding-left: 0.6rem;
+    border-left: 1px solid #444;
+}
+
+.docs-tree-section > ul a {
+    font-size: 0.9rem;
+    color: #aab0b1;
+}
+
+/* Mobile docs tree lives inside the hamburger menu; hidden on desktop */
+.nav-docs-tree {
+    display: none;
+}
+
+/* Tables (docs reference material, blog) */
+table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+th, td {
+    border: 1px solid #444;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+}
+
+th {
+    background: #2a2f30;
+    font-weight: 600;
 }

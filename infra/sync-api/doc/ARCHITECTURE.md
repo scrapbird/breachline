@@ -329,9 +329,9 @@ terraform apply
 
 ### State Management
 
-- Terraform state stored in S3: `scrappy-tfstate/sync-api/terraform.tfstate`
+- Terraform state stored in S3: `breachline-state-uf308ht4/sync-api/terraform.tfstate`
 - State locking with use_lockfile: true
-- Region: ap-southeast-2 (Sydney)
+- Region: us-east-2 (Sydney)
 
 ## Performance Considerations
 

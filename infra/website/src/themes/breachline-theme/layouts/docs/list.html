@@ -1,0 +1,11 @@
+{{ define "main" }}
+<div class="docs-layout">
+    <aside class="docs-sidebar">
+        {{ partial "docs-tree.html" . }}
+    </aside>
+    <article class="docs-content">
+        <h1>{{ .Title }}</h1>
+        {{ .Content }}
+    </article>
+</div>
+{{ end }}

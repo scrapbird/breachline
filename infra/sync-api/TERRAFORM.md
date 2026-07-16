@@ -19,7 +19,7 @@ The infrastructure consists of:
 1. **AWS CLI** configured with appropriate credentials
 2. **Terraform** >= 1.0 installed
 3. **Go** >= 1.21 for building Lambda functions
-4. **S3 Bucket** for Terraform state: `scrappy-tfstate`
+4. **S3 Bucket** for Terraform state: `breachline-state-uf308ht4`
 5. **DynamoDB Table** for state locking: `terraform-state-lock`
 6. **Verified SES Domain** or email address
 
@@ -41,7 +41,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### Optional Variables
 
-- `aws_region`: AWS region (default: `ap-southeast-2`)
+- `aws_region`: AWS region (default: `us-east-2`)
 - `environment`: Environment name (default: `prod`)
 - `api_domain_name`: Custom domain for API (optional)
 - `lambda_memory_size`: Lambda memory in MB (default: `512`)
@@ -131,9 +131,9 @@ terraform output dashboard_name
 ## State Management
 
 Terraform state is stored in:
-- **Bucket**: `scrappy-tfstate`
+- **Bucket**: `breachline-state-uf308ht4`
 - **Key**: `sync-api/terraform.tfstate`
-- **Region**: `ap-southeast-2`
+- **Region**: `us-east-2`
 - **Locking**: Enabled via DynamoDB
 
 ## Updating Infrastructure
@@ -165,7 +165,7 @@ zip function.zip bootstrap
 aws lambda update-function-code \
   --function-name breachline-sync-auth-request-pin \
   --zip-file fileb://function.zip \
-  --region ap-southeast-2
+  --region us-east-2
 ```
 
 ## Destroying Infrastructure
