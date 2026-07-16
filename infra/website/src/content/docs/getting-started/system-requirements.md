@@ -11,7 +11,7 @@ BreachLine is a single self-contained desktop application. There is no runtime t
 
 - **Windows** 10 and later (64-bit).
 - **macOS** 12 (Monterey) and later, Apple Silicon and Intel.
-- **Linux** modern 64-bit distributions, distributed as an AppImage.
+- **Linux** modern 64-bit distributions, distributed as a native binary in a `.tar.gz` archive.
 
 See [Installation](/docs/getting-started/installation/) for per-platform steps.
 

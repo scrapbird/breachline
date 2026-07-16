@@ -37,9 +37,9 @@ You can confirm the active license, including the registered email and expiry da
 
 ## Expiry and renewal
 
-Licenses are time-limited. BreachLine checks the start and expiry dates when it validates the file, so an expired license stops unlocking the licensed features until you renew.
+Licenses are time-limited, an expired license stops unlocking the licensed features until you renew.
 
-To renew, purchase again from the [purchase page](/purchase/) and import the new license file the same way. The new file replaces the old one.
+To renew, purchase again from the [purchase page](/purchase/) and import the new license file the same way.
 
 ## Moving to a new machine
 
