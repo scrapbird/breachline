@@ -51,7 +51,6 @@ type FileTab struct {
 The sort cache stores the entire file's rows pre-sorted by timestamp. This is critical for performance because:
 - Sorting large files (millions of rows) is expensive
 - Most queries benefit from time-ordered data
-- External sort algorithm is used for datasets larger than RAM
 - Reusing sorted data avoids redundant work across queries
 
 ### Cache Key Components
@@ -77,7 +76,7 @@ When a query requires sorted data:
 
 2. **Cache Miss**: Read entire file and sort
    - Read all rows from file into memory
-   - Use external sort (`extsort` library) for large datasets
+   - Sort the in-memory rows
    - Store sorted rows in `sortedRows`
    - Store corresponding header in `sortedHeader`
    - Set cache key fields
@@ -488,8 +487,7 @@ tab.cacheMu.Unlock()
 ### Cache Miss Performance
 
 **Sort Cache Miss**:
-- O(n log n) external sort
-- Disk I/O for large datasets
+- O(n log n) in-memory sort
 - Can take seconds for millions of rows
 - One-time cost per tab/settings combination
 

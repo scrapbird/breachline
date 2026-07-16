@@ -12,7 +12,6 @@ It supports reading time series data from CSV, XLSX and JSON files, supporting c
 
 - Loads large files (up to ~5-10 GB), each row being a timestamped event
 - Sort and query cache, allowing for fast re-sorting and re-querying of the data
-- External sort, using a temporary file to sort the data, allowing for sorting of files larger than available memory
 - Displays the events in a fast, responsive, virtualized data grid (only rendering visible rows, etc.)
 - Provides filtering, sorting, navigation (seek by time)
 - Includes a persistent search bar at the top that uses a filter language similar to Splunk SPL to filter rows in real time

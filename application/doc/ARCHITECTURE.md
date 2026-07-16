@@ -84,7 +84,7 @@ The `app` package contains all backend business logic, organized into focused fi
   - Handles cache hit/miss with sort state management
   - Manages concurrent sort operations with cancellation
   - Parses and applies query filters (text search, time ranges)
-  - Uses external sort for large datasets
+  - Sorts the in-memory dataset
   - Caches results for subsequent queries
 
 **[app_tab_clipboard.go](../app/app_tab_clipboard.go)** - Clipboard operations:
@@ -326,12 +326,10 @@ type Settings struct {
 - `isBoundary(s, start, end)`: Checks token boundaries for search
 
 **Sorting:**
-- `sortRows(ctx, rows, timeIdx, desc)`: External sort for large datasets
-  - Uses `extsort` library for memory-efficient sorting
+- `sortRows(ctx, rows, timeIdx, desc)`: In-memory sort of the loaded rows
   - Sorts by timestamp column
   - Parseable timestamps ordered before unparseable
   - Context-aware cancellation support
-  - JSON serialization for external storage
 
 **Query Term Structure:**
 - `term` struct: Represents parsed search term
@@ -857,10 +855,7 @@ App
 1. **Infinite Scrolling**: Only loads visible rows, handles millions of rows
 2. **Query Caching**: Backend caches filtered results per query
 3. **Sort Caching**: Backend caches sorted data, reuses across queries
-4. **Virtual Select-All**: Doesn't load all rows into memory
-5. **External Sort**: Disk-based sorting for datasets larger than RAM
-6. **Debounced Updates**: Settings changes batch cache clears
-7. **Tab State Isolation**: Switching tabs doesn't reload data
-8. **Lazy Clipboard**: Only initializes when first used
-9. **Streaming Reads**: Files read via streaming, not loaded entirely into memory
-10. **Component Memoization**: React components use useMemo/useCallback where appropriate
+4. **Debounced Updates**: Settings changes batch cache clears
+5. **Tab State Isolation**: Switching tabs doesn't reload data
+6. **Lazy Clipboard**: Only initializes when first used
+7. **Component Memoization**: React components use useMemo/useCallback where appropriate

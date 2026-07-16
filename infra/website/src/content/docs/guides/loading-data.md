@@ -52,6 +52,6 @@ Each element of `Records` becomes a row, and its keys become columns.
 
 ## Large files
 
-Files of 1 GB or more are handled with external sorting and intelligent caching,
-so you can scroll and query without loading everything into memory at once. See
+Large files are loaded fully into memory and backed by intelligent caching,
+so scrolling and querying stay fast once a dataset is open. See
 the [Query Language](/docs/guides/query-language/) guide to start filtering.

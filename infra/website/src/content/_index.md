@@ -12,7 +12,7 @@ hero_image: "/images/breachline-window.png"
 - **Handle Large Datasets**: Process files 1GB or more with ease
 - **Advanced Filtering & Query Support**: SPL-like query language with boolean logic, field operators, time filters, and dedup
 - **Multiple Format Support**: Load CSV, XLSX, and JSON files with custom JPATH expressions. Open entire directories of files and view them as a single dataset (such as CloudTrail backups)
-- **Fast Performance**: Intelligent caching and external sorting for optimal speed
+- **Fast Performance**: Intelligent caching for optimal speed
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 - **Timezone Handling**: Automatic timezone detection with flexible display options for consistent analysis across time zones
 - **Annotation Support**: Add notes and annotations to specific rows for investigation tracking
