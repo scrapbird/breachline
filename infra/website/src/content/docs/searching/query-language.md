@@ -17,7 +17,8 @@ Compare a field to a value with the standard operators:
 | `!=`     | not equals               | `user!="root"`             |
 | `>` `<`  | greater / less than      | `bytes>1048576`            |
 | `>=` `<=`| greater / less or equal  | `status_code>=400`         |
-| `~`      | matches (substring/regex)| `path~"/admin"`            |
+| `~`      | contains (case-insensitive substring) | `path~"/admin"`   |
+| `!~`     | does not contain         | `path!~"/health"`          |
 
 ## Boolean logic
 

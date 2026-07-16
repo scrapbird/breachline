@@ -20,6 +20,6 @@ Select-all works on the whole filtered result set, not just the rows currently s
 
 Copy the [timeline histogram](/docs/searching/histogram/) as a PNG image to paste a visual of event volume straight into a report.
 
-## Export a full timeline
+## Export an annotated timeline
 
-To export a merged, annotated timeline across every file in a workspace, use the workspace export instead. See [Exporting a Timeline](/docs/workspaces/exporting-a-timeline/).
+To export a merged, time-ordered CSV of the rows you annotated across a workspace, use the workspace export instead. See [Exporting a Timeline](/docs/workspaces/exporting-a-timeline/).

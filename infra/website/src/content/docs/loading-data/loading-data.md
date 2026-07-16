@@ -28,6 +28,21 @@ cloudtrail/
 
 All records are merged and sorted by timestamp.
 
+## Compressed files
+
+BreachLine decompresses archived files automatically when you open them. A gzip file (`.gz`) is unzipped in memory on open and read as whatever format it contains, so opening `cloudtrail.json.gz` behaves exactly like opening the `cloudtrail.json` inside it, with no need to extract it first. bzip2 (`.bz2`) and xz (`.xz`) archives are handled the same way. Compression is detected both from the file extension and from the file's contents, so a compressed file with an unusual name is still recognised.
+
+This pairs naturally with opening a directory. Point BreachLine at a folder of compressed, partitioned exports and it decompresses and merges every file into one time-ordered dataset. That is the usual shape of a CloudTrail archive, whose events arrive as many small gzip files split across date-partitioned folders:
+
+```
+cloudtrail/
+  2025/08/01/000000.json.gz
+  2025/08/01/010000.json.gz
+  ...
+```
+
+Open the top-level folder and the whole archive becomes a single searchable timeline.
+
 ## Custom JPATH expressions
 
 For nested JSON, use a JPATH expression to tell BreachLine where the records live. Given a file shaped like this:
