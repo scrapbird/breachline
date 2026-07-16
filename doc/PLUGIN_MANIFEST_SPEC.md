@@ -85,10 +85,10 @@ author: John Doe
 ### `executable` (required)
 - **Type**: String
 - **Description**: Path to the plugin executable
-- **Format**: 
+- **Format**:
   - Relative path (from plugin.yml directory): `"./parquet-loader"`, `"parquet-loader"`
   - Absolute path: `"/usr/local/bin/parquet-loader"`
-- **Validation**: 
+- **Validation**:
   - File must exist
   - File must have execute permissions (on Unix-like systems)
 

@@ -46,7 +46,7 @@ Implemented comprehensive license-based rate limiting for the sync API using Dyn
 
 Applied rate limiting to key endpoints:
 - `workspace-create` - Workspace creation operations
-- `auth-refresh` - Token refresh operations  
+- `auth-refresh` - Token refresh operations
 - `file-create` - File upload operations
 - `annotation-create` - Annotation creation operations
 

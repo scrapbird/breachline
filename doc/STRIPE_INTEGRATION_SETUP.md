@@ -330,7 +330,7 @@ terraform apply
 
 **Cause**: Webhook secret mismatch
 
-**Fix**: 
+**Fix**:
 1. Get webhook secret from Stripe Dashboard
 2. Update `terraform.tfvars`
 3. Run `terraform apply`
@@ -343,7 +343,7 @@ terraform apply
 
 ### Issue: Webhook not being called
 
-**Cause**: 
+**Cause**:
 - Wrong webhook URL in Stripe
 - Lambda permission issues
 

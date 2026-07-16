@@ -28,12 +28,7 @@ If you don't receive your license key within 10 minutes, please check your spam 
 </div>
 
 <script>
-// Extract session ID from URL if present
-const urlParams = new URLSearchParams(window.location.search);
-const sessionId = urlParams.get('session_id');
+// Extract session ID from URL if present const urlParams = new URLSearchParams(window.location.search); const sessionId = urlParams.get('session_id');
 
-if (sessionId) {
-    document.getElementById('order-details').style.display = 'block';
-    document.getElementById('session-id').textContent = sessionId;
-}
+if (sessionId) { document.getElementById('order-details').style.display = 'block'; document.getElementById('session-id').textContent = sessionId; }
 </script>

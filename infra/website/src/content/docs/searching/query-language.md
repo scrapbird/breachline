@@ -5,8 +5,7 @@ draft: false
 weight: 1
 ---
 
-BreachLine's query language is an SPL-like syntax designed for fast filtering of
-timestamped records. Queries evaluate as you type.
+BreachLine's query language is an SPL-like syntax designed for fast filtering of timestamped records. Queries evaluate as you type.
 
 ## Field comparisons
 
@@ -62,5 +61,6 @@ dedup source_ip, user_agent
 status_code>=400 AND path~"/api/" after -7d dedup source_ip
 ```
 
-This finds error responses on API routes in the last seven days, keeping one row
-per source IP.
+This finds error responses on API routes in the last seven days, keeping one row per source IP.
+
+See the [Query Pipeline](/docs/searching/query-pipeline/) guide for column projection and more detail on time filters.

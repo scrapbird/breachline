@@ -5,8 +5,7 @@ draft: false
 weight: 1
 ---
 
-BreachLine ships as a single self-contained application for Windows, macOS, and
-Linux. There is no runtime to install and no background service.
+BreachLine ships as a single self-contained application for Windows, macOS, and Linux. There is no runtime to install and no background service.
 
 ## Download
 
@@ -44,5 +43,4 @@ mv BreachLine-x86_64.AppImage ~/.usr/local/bin/breachline
 
 ## Verifying the install
 
-Open the app and check the version under **Help → About**. You're ready to
-[load your first dataset](/docs/getting-started/quick-start/).
+Open the app and check the version under **Help → About**. You're ready to [load your first dataset](/docs/getting-started/quick-start/).

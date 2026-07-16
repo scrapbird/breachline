@@ -47,7 +47,7 @@ This infrastructure manages three Lambda functions:
   - Added as `x-cloudfront-secret` header to requests sent to API Gateway
   - Lambda validates this header before processing any request
   - **Blocks all direct API Gateway access** - requests must come through CloudFront
-- **Caching Strategy**: 
+- **Caching Strategy**:
   - ✅ Caches error responses (400, 403, 404, 429) for 5 minutes
   - ❌ Never caches successful webhook processing (200 OK)
 - **Security Features**:
@@ -200,7 +200,7 @@ terraform output api_gateway_url
   - Protected by DDoS protection and caching
   - Includes CloudFront secret header automatically
   - Global edge locations for low latency
-  
+
 - ❌ **`api_gateway_url` (Direct API Gateway)**: DO NOT USE - returns 403 Forbidden
   - Direct access is intentionally blocked for security
   - Missing CloudFront secret header
@@ -369,7 +369,7 @@ rm -f license-generator.zip stripe-webhook.zip
 
 **Cause**: This is intentional - direct API Gateway access is blocked for security
 
-**Solution**: 
+**Solution**:
 - All requests **must** go through the CloudFront distribution
 - Use the CloudFront URL from `terraform output webhook_url`
 - Direct API Gateway access is blocked by CloudFront secret header validation
@@ -382,21 +382,21 @@ rm -f license-generator.zip stripe-webhook.zip
 
 ### Created Resources
 
-- **3 Lambda Functions**: 
+- **3 Lambda Functions**:
   - License Generator (triggered by SNS, publishes to SNS)
   - Stripe Webhook (triggered by API Gateway, publishes to SNS)
   - License Sender (triggered by SNS, sends via SES)
-- **3 IAM Roles**: 
+- **3 IAM Roles**:
   - License Generator role with Secrets Manager and SNS publish permissions
   - Stripe Webhook role with Secrets Manager and SNS publish permissions
   - License Sender role with SES send email permissions
-- **2 SNS Topics**: 
+- **2 SNS Topics**:
   - `breachline-license-generation` - webhook to generator
   - `breachline-license-delivery` - generator to sender
 - **2 SNS Subscriptions**: Connect topics to respective Lambda functions
 - **1 CloudFront Distribution**: DDoS protection, cost optimization, and API Gateway access control
 - **1 Random Secret**: 32-character secret for CloudFront-to-API Gateway authentication
-- **3 Secrets Manager Secrets**: 
+- **3 Secrets Manager Secrets**:
   - `breachline-license-signing-key` - Stores license signing private key
   - `breachline-stripe-api-key` - Stores Stripe API secret key
   - `breachline-stripe-webhook-secret` - Stores Stripe webhook signing secret
@@ -491,7 +491,7 @@ rm -f license-generator.zip stripe-webhook.zip
 terraform destroy
 ```
 
-**Important**: 
+**Important**:
 - Remove the webhook endpoint from Stripe Dashboard
 - Secrets Manager secret has a 7-day recovery window
 

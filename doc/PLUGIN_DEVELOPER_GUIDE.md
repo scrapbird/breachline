@@ -24,7 +24,7 @@ BreachLine plugins allow you to load custom file formats by implementing an exec
      - .custom
    author: Your Name
    ```
-   
+
    Generate a unique UUID for your plugin using:
    - Linux/macOS: `uuidgen`
    - PowerShell: `[guid]::NewGuid()`

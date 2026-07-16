@@ -14,14 +14,12 @@ Timestamps **without** any timezone information. These should be interpreted usi
 Use these files to verify that the default/override timezone settings work correctly.
 
 ### `timestamps_with_utc.*`
-Timestamps **with UTC timezone** indicators (`Z` suffix or `UTC` suffix).
-These should always be interpreted as UTC regardless of any timezone settings.
+Timestamps **with UTC timezone** indicators (`Z` suffix or `UTC` suffix). These should always be interpreted as UTC regardless of any timezone settings.
 
 Use these files to verify that explicit UTC timestamps are handled correctly.
 
 ### `timestamps_with_offsets.*`
-Timestamps **with explicit timezone offsets** (e.g., `+13:00`, `-05:00`).
-These should use their embedded timezone offset regardless of any timezone settings.
+Timestamps **with explicit timezone offsets** (e.g., `+13:00`, `-05:00`). These should use their embedded timezone offset regardless of any timezone settings.
 
 Use these files to verify that explicit offset timestamps are handled correctly.
 

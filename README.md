@@ -165,4 +165,3 @@ make help                 # list every target
 - Deploys use the standard AWS credential chain, so run `aws sso login` (or export creds) before `make deploy`.
 
 > Note: the SES domain identity for `breachline.app` is a single account-level resource, so only the `prod` stack declares/verifies it; `dev` sends from the same verified domain (`noreply-dev@breachline.app`).
-

@@ -165,7 +165,7 @@ Verify the PIN and receive access tokens. The email is extracted from the provid
 }
 ```
 
-**Note**: 
+**Note**:
 - The email address is extracted from the license file by the backend
 - User subscription data (workspace_limit, seat_count) is stored in the database and can be updated independently of the JWT tokens
 - On first login, a user subscription record is created with default values from the license
@@ -732,7 +732,7 @@ Remove a team member from the workspace.
 }
 ```
 
-**Note**: 
+**Note**:
 - User subscription data is stored in the database and can be updated independently of authentication
 - `email`: Extracted from the license file
 - `workspace_limit`: Can be increased by purchasing additional workspace packs (5 workspaces per pack at $5/month). Updates take effect immediately.
@@ -754,7 +754,7 @@ Remove a team member from the workspace.
 }
 ```
 
-**Note**: 
+**Note**:
 - `owner_email`: Email of the workspace owner (from their license)
 - Adding members to shared workspaces consumes seats from the owner's seat pool
 - Each member in each workspace uses one seat (e.g., adding 1 user to 2 workspaces uses 2 seats)

@@ -14,6 +14,8 @@ Any tools created should have words in their directory name separated by - chara
 
 Em-dashes (—) must never be used in any copy visible to a user or site visitor (app UI, website content, docs, marketing). Use a spaced hyphen, colon, or reworded sentence instead.
 
+Markdown files (`.md`) must not be hard-wrapped to a fixed line length. Write each paragraph or list item as a single physical line and let the renderer wrap it. Do not manually break a paragraph across multiple lines. Code fences, tables, headings, and YAML frontmatter are exempt and keep their own line structure.
+
 # Tasks
 
 - All currently open tasks are contained in `doc/TODO.md`
@@ -86,8 +88,7 @@ When writing short scripts that are to be run as a standalone application:
 - Always create a README.md in the same directory as the terraform templates explaining how to use them and what input variables are required
 - Always use terraform for managing servers / lambda functions etc
 - All AWS resources created by the terraform template should have a tag named project with the value breachline
-- Terraform state files should always be stored in the AWS
-S3 bucket named `breachline-state-uf308ht4` in the us-east-2 region. The state should always be contained in folder within the bucket named after the infrastructure component, and (for components with dev/prod environments) scoped by environment, such as `payment-api/dev/terraform.tfstate` and `payment-api/prod/terraform.tfstate`
+- Terraform state files should always be stored in the AWS S3 bucket named `breachline-state-uf308ht4` in the us-east-2 region. The state should always be contained in folder within the bucket named after the infrastructure component, and (for components with dev/prod environments) scoped by environment, such as `payment-api/dev/terraform.tfstate` and `payment-api/prod/terraform.tfstate`
 - Always use a lockfile in the same bucket folder as the tfstate file for the state locking
 - Always use a Go lambda function for tasks which should run on a schedule or are not interactive. If unsure, ask for clarification before continuing
 - Always use ansible for provisioning servers
