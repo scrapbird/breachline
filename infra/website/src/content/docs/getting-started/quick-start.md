@@ -13,7 +13,7 @@ Choose **File → Open** and select a CSV, XLSX, or JSON file. You can also open
 
 ## 2. Pick the timestamp field
 
-BreachLine auto-detects the most likely timestamp column. If it guesses wrong, click the column header and choose **Use as timestamp**. Common formats are recognised automatically, including ISO 8601 and epoch values.
+BreachLine auto-detects the most likely timestamp column. If it guesses wrong, right click the column header and choose **Use as timestamp**. Common formats are recognised automatically, including ISO 8601 and epoch values.
 
 ## 3. Run a query
 
@@ -23,7 +23,7 @@ Type a query into the search bar and press **Enter**:
 status_code>=400 AND source_ip="10.0.4.12"
 ```
 
-Results update instantly and the timeline histogram redraws to match your filter. See the [Query Language](/docs/searching/query-language/) guide for the full syntax.
+Results are displayed in the grid and the timeline histogram redraws to match your filter. See the [Query Language](/docs/searching/query-language/) guide for the full syntax.
 
 ## 4. Annotate findings
 
