@@ -412,6 +412,10 @@ article > ul,
 /* Code & data - monospace accent ties the site to the product */
 code, pre, kbd, samp {
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    /* Disable programming ligatures so operators like >= <= == != render as
+       separate ASCII characters, not combined glyphs. */
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "clig" 0, "calt" 0, "dlig" 0;
 }
 
 code {

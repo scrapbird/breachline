@@ -5,7 +5,7 @@ draft: false
 weight: 1
 ---
 
-BreachLine's query language is an SPL-like syntax designed for fast filtering of timestamped records. Queries evaluate as you type.
+BreachLine's query language is an SPL-like syntax designed for fast filtering of timestamped records.
 
 ## Field comparisons
 
