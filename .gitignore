@@ -28,6 +28,9 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
+# Local per-instance app state (contains a generated instance_id)
+application/breachline.yml
+
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc

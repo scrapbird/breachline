@@ -21,6 +21,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       
       - name: Install system dependencies
         run: |
@@ -35,10 +40,16 @@ jobs:
           cd application/frontend
           npm install
       
+      - name: Resolve sync API endpoint (prod)
+        run: |
+          python3 -m pip install --quiet pyyaml
+          echo "SYNC_API_ENDPOINT=$(python3 scripts/api-endpoint.py prod)" >> "$GITHUB_ENV"
+
       - name: Build Linux application
         run: |
           cd application
-          ~/go/bin/wails build -tags webkit2_41 -platform linux/amd64 -webview2 browser
+          ~/go/bin/wails build -tags webkit2_41 -platform linux/amd64 -webview2 browser \
+            -ldflags "-X breachline/app/sync.BaseURL=$SYNC_API_ENDPOINT"
       
       - name: Package Linux binary
         run: |
@@ -66,6 +77,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
@@ -75,11 +91,17 @@ jobs:
           cd application/frontend
           npm install
       
+      - name: Resolve sync API endpoint (prod)
+        run: |
+          python -m pip install --quiet pyyaml
+          Add-Content -Path $env:GITHUB_ENV -Value "SYNC_API_ENDPOINT=$(python scripts/api-endpoint.py prod)"
+
       - name: Build Windows application
         run: |
           cd application
           $env:Path += ";$env:USERPROFILE\go\bin"
-          wails build -platform windows/amd64 -tags webkit2_42 -webview2 browser
+          wails build -platform windows/amd64 -tags webkit2_42 -webview2 browser `
+            -ldflags "-X breachline/app/sync.BaseURL=$env:SYNC_API_ENDPOINT"
       
       - name: Package Windows binary
         run: |
@@ -107,6 +129,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
@@ -116,10 +143,16 @@ jobs:
           cd application/frontend
           npm install
       
+      - name: Resolve sync API endpoint (prod)
+        run: |
+          python3 -m pip install --quiet pyyaml
+          echo "SYNC_API_ENDPOINT=$(python3 scripts/api-endpoint.py prod)" >> "$GITHUB_ENV"
+
       - name: Build macOS application (Universal Binary)
         run: |
           cd application
-          ~/go/bin/wails build -platform darwin/universal -tags webkit2_42 -webview2 browser
+          ~/go/bin/wails build -platform darwin/universal -tags webkit2_42 -webview2 browser \
+            -ldflags "-X breachline/app/sync.BaseURL=$SYNC_API_ENDPOINT"
       
       - name: Package macOS binary
         run: |

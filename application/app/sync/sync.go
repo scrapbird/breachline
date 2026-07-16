@@ -18,10 +18,11 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const (
-	// BaseURL is the base URL for the sync API
-	BaseURL = "https://u9trlagch8.execute-api.ap-southeast-2.amazonaws.com/v1"
-)
+// BaseURL is the base URL for the sync API. It defaults to production but is
+// overridden at build time via -ldflags "-X breachline/app/sync.BaseURL=<url>",
+// with the value derived from the repo-root config.yml (api_domain_name for the
+// target environment). See application/build.sh and scripts/api-endpoint.py.
+var BaseURL = "https://api.breachline.app/v1"
 
 // MenuUpdater is an interface for updating menu items
 type MenuUpdater interface {
