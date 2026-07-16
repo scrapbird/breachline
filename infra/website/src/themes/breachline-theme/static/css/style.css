@@ -676,49 +676,6 @@ footer p {
         display: inline-block;
     }
 
-    /* Docs: hide the desktop sidebar; surface the tree in the nav menu */
-    .docs-layout {
-        grid-template-columns: 1fr;
-        gap: 0;
-    }
-
-    .docs-sidebar {
-        display: none;
-    }
-
-    .nav-docs-tree {
-        display: block;
-        width: 100%;
-        text-align: left;
-        margin-top: 0.5rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid #444;
-    }
-
-    .nav-docs-heading {
-        display: block;
-        padding: 0 0.6rem;
-        margin-bottom: 0.5rem;
-        color: #999;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .nav-menu .docs-tree a {
-        color: #cfd3d4;
-        font-weight: 500;
-    }
-
-    .nav-menu .docs-tree a.active {
-        color: #4bc57f;
-    }
-
-    .nav-menu .docs-tree a::after {
-        display: none;
-    }
-
     .hero {
         grid-template-columns: 1fr;
         gap: 2rem;
@@ -905,4 +862,54 @@ th, td {
 th {
     background: #2a2f30;
     font-weight: 600;
+}
+
+/* Docs mobile: collapse to one column, hide the desktop sidebar, surface the
+   tree in the hamburger menu. Kept after the base docs rules so the
+   single-column override wins on source order. */
+@media (max-width: 768px) {
+    .docs-layout {
+        display: block;
+    }
+
+    .docs-sidebar {
+        display: none;
+    }
+
+    .docs-content {
+        width: 100%;
+    }
+
+    .nav-docs-tree {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-top: 0.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #444;
+    }
+
+    .nav-docs-heading {
+        display: block;
+        padding: 0 0.6rem;
+        margin-bottom: 0.5rem;
+        color: #999;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .nav-menu .docs-tree a {
+        color: #cfd3d4;
+        font-weight: 500;
+    }
+
+    .nav-menu .docs-tree a.active {
+        color: #4bc57f;
+    }
+
+    .nav-menu .docs-tree a::after {
+        display: none;
+    }
 }
