@@ -13,29 +13,29 @@ Grab the latest build for your platform from the [download page](/download/).
 
 ## Windows
 
-The Windows build is a `BreachLine.exe` inside a `.zip` archive.
+The Windows build is `breachline.exe` inside a `.zip` archive (`breachline-windows-amd64.zip`), for 64-bit (x64) Windows.
 
 1. Download the `.zip` for Windows.
 2. Right-click it and choose **Extract All** to unzip it.
-3. Run **BreachLine.exe** from the extracted folder.
+3. Run **breachline.exe** from the extracted folder.
 
-There is no installer, so you can keep the extracted folder anywhere you like, or move `BreachLine.exe` somewhere on your `PATH`. Windows may show a SmartScreen prompt the first time you run it; choose **More info → Run anyway** to continue.
+There is no installer, so you can keep the extracted folder anywhere you like, or move `breachline.exe` somewhere on your `PATH`. Windows may show a SmartScreen prompt the first time you run it; choose **More info → Run anyway** to continue.
 
 ## macOS
 
-The macOS build is a `BreachLine.app` bundle packed in a `.tar.gz` archive.
+The macOS build is a `breachline.app` bundle packed in a `.tar.gz` archive (`breachline-macos-universal.tar.gz`). It is a single Universal Binary, so the same download runs natively on both Apple Silicon and Intel Macs.
 
-1. Download the `.tar.gz` for your Mac (Intel or Apple Silicon).
-2. Double-click it in Finder to extract `BreachLine.app`, or run `tar -xzf` on it in a terminal.
-3. Drag **BreachLine.app** into your `Applications` folder.
+1. Download the macOS `.tar.gz`.
+2. Double-click it in Finder to extract `breachline.app`, or run `tar -xzf` on it in a terminal.
+3. Drag **breachline.app** into your `Applications` folder.
 4. On first launch, right-click the app and choose **Open** to clear Gatekeeper.
 
 ## Linux
 
-The Linux build is a native ELF binary in a `.tar.gz` archive.
+The Linux build is a native x86_64 (amd64) ELF binary in a `.tar.gz` archive (`breachline-linux-amd64.tar.gz`).
 
 ```bash
-tar -xzf breachline-linux-x86_64.tar.gz
+tar -xzf breachline-linux-amd64.tar.gz
 chmod +x breachline
 ./breachline
 ```
