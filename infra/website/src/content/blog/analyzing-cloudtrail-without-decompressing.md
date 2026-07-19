@@ -80,6 +80,18 @@ filter readOnly=false | columns eventTime, eventName, eventSource, sourceIPAddre
 
 576 mutating events out of the 8,227. `RunInstances` and `TerminateInstances`, `CreateLogGroup`, `RegisterManagedInstance`, the sign-in sequence around each console session. This is the list you actually walk during a review, and it came out of the same open folder with one more filter.
 
+## Reduce it to the distinct actions
+
+576 rows is still a lot to scroll when all you want is the shape of what happened. Add a `dedup` stage on `eventName` and the grid collapses to one row per unique action, so every repeat drops away:
+
+```
+filter readOnly=false | dedup eventName | columns eventName, eventSource
+```
+
+![The 576 mutating events collapsed to 53 distinct action names](/blog/images/cloudtrail-unique-events.png)
+
+53 unique events, and now it reads at a glance. A wall of `Delete*` calls across `apigateway`, `cloudfront` and `ses`, `DeleteRole` and `DetachRolePolicy` on `iam`, `CreateAccount` on `organizations`, `DeleteSecret` on `secretsmanager`. `dedup` keeps the first row it sees for each `eventName` and throws the rest out, so this is the distinct set of things that changed rather than a count of them. It turns 576 events into a 53-line checklist of what to actually go and look at.
+
 ## That is the whole workflow
 
 No `gunzip`, no `jq`, no concatenation step, no merged file sitting in `/tmp` that you have to remember to delete. You copied the objects down, opened the folder, and told BreachLine the records live at `$.Records`. Everything after that was a filter.
