@@ -17,5 +17,6 @@ hero_image: "/images/breachline-window.png"
 - **Timezone Handling**: Automatic timezone detection with flexible display options for consistent analysis across time zones
 - **Annotation Support**: Add notes and annotations to specific rows for investigation tracking
 - **Shared Workspace Support**: Collaborate with team members by sharing workspaces and annotations
+- **AI Investigations over MCP**: Let an AI agent drive the same window you are watching, running queries and annotating rows in the live UI so you see every step
 
 [Download Now](/download/) | [Learn More](/features/)
