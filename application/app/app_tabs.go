@@ -138,9 +138,10 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 		return nil, fmt.Errorf("failed to read headers: %w", err)
 	}
 
-	// Preload file data into cache asynchronously
-	// This ensures subsequent queries and annotations can use cached data
-	go a.preloadFileToCache(tab)
+	// Note: we no longer preload the file into the cache here. The grid's first
+	// query populates the base-file cache on its own; the previous async preload
+	// duplicated that work and could race the first query into reading the whole
+	// file twice (there is no in-flight de-duplication on base-file loads).
 
 	// Check for any decompression warning from compressed file loading
 	decompressionWarning := fileloader.GetDecompressionWarning(filePath)
@@ -154,88 +155,6 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 		IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
 		DecompressionWarning:   decompressionWarning,
 	}, nil
-}
-
-// preloadFileToCache loads file data into the main cache asynchronously
-// This ensures subsequent queries and annotations use cached data instead of re-reading the file
-func (a *App) preloadFileToCache(tab *FileTab) {
-	if tab == nil || a.queryCache == nil {
-		return
-	}
-
-	startTime := time.Now()
-
-	// Read headers to detect the timestamp column
-	// This ensures preload uses the SAME cache key as subsequent queries
-	headers, err := a.readHeaderForTab(tab)
-	if err != nil {
-		a.Log("warn", fmt.Sprintf("[CACHE_PRELOAD_ERROR] Failed to read headers for preload: %v", err))
-		return
-	}
-
-	// Detect timestamp column from headers - this is what queries will use
-	timeField := ""
-	timeIdx := timestamps.DetectTimestampIndex(headers)
-	if timeIdx >= 0 && timeIdx < len(headers) {
-		timeField = headers[timeIdx]
-	}
-
-	// Build cache key with detected timeField (matching query execution)
-	// Note: Cache key includes timeField, NoHeaderRow, and IngestTimezoneOverride so different settings have different cache entries
-	// IMPORTANT: Use same timezone resolution logic as query execution to avoid duplicate cache entries
-	effectiveIngestTz := timestamps.GetIngestTimezoneWithOverride(tab.Options.IngestTimezoneOverride)
-	tzKey := effectiveIngestTz.String()
-	baseFileCacheKey := fmt.Sprintf("file:%s:time:%s:noheader:%t:tz:%s", tab.FileHash, timeField, tab.Options.NoHeaderRow, tzKey)
-	if entry, found := a.queryCache.Get(baseFileCacheKey); found && entry.IsComplete {
-		a.Log("debug", fmt.Sprintf("[CACHE_PRELOAD_SKIP] File already cached: %s (timeField: %s)", tab.FilePath, timeField))
-		return
-	}
-
-	a.Log("debug", fmt.Sprintf("[CACHE_PRELOAD_START] Loading file to cache: %s (timeField: %s, tz: %s)", tab.FilePath, timeField, tzKey))
-
-	// Execute empty query to load entire file into cache
-	// Empty query = no filters/transformations, just loads base file data
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	// Convert FileTab to query package format (matching pattern from executeQueryStreamingOptimized)
-	queryTab := &querypkg.FileTab{
-		ID:       tab.ID,
-		FilePath: tab.FilePath,
-		FileHash: tab.FileHash,
-		Options:  tab.Options,
-	}
-
-	// Get cache config and ingest timezone from settings (matching executeQueryStreamingOptimized)
-	currentSettings := settings.GetEffectiveSettings()
-	cacheConfig := querypkg.CacheConfigFromSettings(currentSettings.EnableQueryCache, currentSettings.CacheSizeLimitMB)
-	ingestTimezone := timestamps.GetIngestTimezoneWithOverride(tab.Options.IngestTimezoneOverride)
-
-	// Use wrapper function with proper timezone to ensure consistent cache keys
-	// Pass detected timeField so cache key matches subsequent queries
-	_, err = querypkg.ExecuteQueryInternalWithSettings(
-		ctx,
-		queryTab,
-		"",        // empty query - loads base file data
-		timeField, // use detected timestamp column for consistent cache keys
-		nil,       // no workspace service needed
-		a.queryCache,
-		func(stage string, current, total int64, msg string) {
-			// Silent progress callback for background loading
-		},
-		cacheConfig,
-		time.Local,     // display timezone not relevant for preload
-		ingestTimezone, // use effective ingest timezone for consistent cache keys
-		false,          // sortByTime not needed for preload
-		false,          // sortDescending not needed for preload
-	)
-	if err != nil {
-		a.Log("warn", fmt.Sprintf("[CACHE_PRELOAD_ERROR] Failed to preload file to cache: %v", err))
-		return
-	}
-
-	duration := time.Since(startTime)
-	a.Log("info", fmt.Sprintf("[CACHE_PRELOAD_COMPLETE] Cached %s in %v", tab.FilePath, duration.Round(time.Millisecond)))
 }
 
 // OpenFileDialog opens a file dialog and returns the selected file path
@@ -377,24 +296,6 @@ func (a *App) OpenFileHeadersWithDialog() ([]string, error) {
 	}
 
 	return a.readHeaderForTab(tab)
-}
-
-// GetCSVRowCountForTab returns the total number of data rows for a specific tab
-func (a *App) GetCSVRowCountForTab(tabID string) (int, error) {
-	tab := a.GetTab(tabID)
-	if tab == nil {
-		return 0, fmt.Errorf("tab not found: %s", tabID)
-	}
-	return a.getRowCountForTab(tab)
-}
-
-// GetCSVRowCountForActiveTab returns the total number of data rows for the active tab
-func (a *App) GetCSVRowCount() (int, error) {
-	tab := a.GetActiveTab()
-	if tab == nil {
-		return 0, nil
-	}
-	return a.getRowCountForTab(tab)
 }
 
 // ExecuteQueryForTab executes a query for a specific tab and returns all results

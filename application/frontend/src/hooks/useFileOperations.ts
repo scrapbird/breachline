@@ -310,13 +310,10 @@ export const useFileOperations = ({
         alert(`Warning: ${response.decompressionWarning}\n\nSome data may be missing from this file.`);
       }
       
-      // Fetch total row count
-      try {
-        const total = await AppAPI.GetCSVRowCount();
-        tabState.setTotalRowsForTab(tabId, total || 0);
-      } catch (e) {
-        console.warn('Failed to get total row count:', e);
-      }
+      // Row count is populated by the first grid query (GetDataAndHistogram
+      // reports the total), so we no longer do a separate full-file count scan.
+      // Reset to null so the indicator shows a spinner until that query returns.
+      tabState.setTotalRowsForTab(tabId, null);
       
       // Notify caller that headers are ready
       if (onHeadersReady) {
@@ -422,13 +419,10 @@ export const useFileOperations = ({
           alert(`Warning: ${response.decompressionWarning}\n\nSome data may be missing from this file.`);
         }
         
-        // Fetch total row count
-        try {
-          const total = await AppAPI.GetCSVRowCountForTab(tabId);
-          tabState.setTotalRowsForTab(tabId, total || 0);
-        } catch (e) {
-          console.warn('Failed to get total row count:', e);
-        }
+        // Row count is populated by the first grid query (GetDataAndHistogram
+        // reports the total), so we no longer do a separate full-file count scan.
+        // Reset to null so the indicator shows a spinner until that query returns.
+        tabState.setTotalRowsForTab(tabId, null);
         
         // Notify caller that headers are ready
         if (onHeadersReady) {

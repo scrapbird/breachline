@@ -357,7 +357,10 @@ export const useGridOperations = ({
           }
           
           if (lastRow >= 0 && tabState.getGeneration() === thisGen) {
-            tabState.setTotalRows(lastRow);
+            // Write the total to THIS datasource's tab (not just the active tab) so a
+            // background tab's query result lands on the correct tab. This is also the
+            // sole source of totalRows now that the separate count scan is removed.
+            tabState.setTotalRowsForTab(tabId, lastRow);
             const currentTab = tabState.getCurrentTabState();
             const gridApi = currentTab?.gridApi;
             if (gridApi && gridApi.setRowCount) {

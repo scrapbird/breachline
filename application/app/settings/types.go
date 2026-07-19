@@ -91,8 +91,9 @@ var defaultSettings = Settings{
 	// Default window size (matches main.go defaults)
 	WindowWidth:  1024,
 	WindowHeight: 768,
-	// Default max files when opening a directory
-	MaxDirectoryFiles: 500,
+	// Default max files when opening a directory: 0 means unlimited (load every
+	// matching file). Users can set a positive cap in Settings if needed.
+	MaxDirectoryFiles: 0,
 	// Plugin support disabled by default
 	EnablePlugins: false,
 	Plugins:       []PluginConfig{},

@@ -156,9 +156,12 @@ func (r *FileReader) loadRowsFromDirectory(needsSort bool, timeIdx int, desc boo
 		timeIdx = timestamps.DetectTimestampIndex(header)
 	}
 
-	// Discover files in the directory
+	// Discover files in the directory. Apply the same "maximum files when opening a
+	// directory" limit the open path used, so the rows we load match the files that
+	// were discovered, counted, and hashed when the tab was opened (0 = unlimited).
 	info, err := DiscoverFiles(r.filePath, DirectoryDiscoveryOptions{
-		Pattern: r.options.FilePattern,
+		Pattern:  r.options.FilePattern,
+		MaxFiles: EffectiveDirectoryFileLimit(),
 	}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover files: %w", err)

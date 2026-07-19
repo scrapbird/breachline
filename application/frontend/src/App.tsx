@@ -287,7 +287,7 @@ function App() {
                         display_timezone: s.display_timezone ?? 'Local',
                         timestamp_display_format: s.timestamp_display_format ?? 'yyyy-MM-dd HH:mm:ss',
                         pin_timestamp_column: s.pin_timestamp_column ?? false,
-                        max_directory_files: s.max_directory_files ?? 500,
+                        max_directory_files: s.max_directory_files ?? 0,
                         enable_plugins: s.enable_plugins ?? false,
                         mcp_server_enabled: s.mcp_server_enabled ?? false,
                         mcp_server_address: s.mcp_server_address ?? '127.0.0.1:8765',
@@ -919,13 +919,10 @@ function App() {
                     alert(`Warning: ${response.decompressionWarning}\n\nSome data may be missing from this file.`);
                 }
 
-                // Fetch total row count
-                try {
-                    const total = await AppAPI.GetCSVRowCountForTab(tabId);
-                    tabState.setTotalRowsForTab(tabId, total || 0);
-                } catch (e) {
-                    console.warn('Failed to get total row count:', e);
-                }
+                // Row count is populated by the first grid query (GetDataAndHistogram
+                // reports the total); reset to null so the indicator shows a spinner
+                // until that query returns, instead of a separate full-file count scan.
+                tabState.setTotalRowsForTab(tabId, null);
 
                 // Give React time to update state
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -1215,13 +1212,10 @@ function App() {
                 tabState.incrementFileTokenForTab(tabId);
                 tabState.incrementGenerationForTab(tabId);
 
-                // Fetch total row count
-                try {
-                    const total = await AppAPI.GetCSVRowCount();
-                    tabState.setTotalRowsForTab(tabId, total || 0);
-                } catch (e) {
-                    console.warn('Failed to get total row count:', e);
-                }
+                // Row count is populated by the first grid query (GetDataAndHistogram
+                // reports the total); reset to null so the indicator shows a spinner
+                // until that query returns, instead of a separate full-file count scan.
+                tabState.setTotalRowsForTab(tabId, null);
 
                 // Set active tab (skip for dashboard)
                 if (tabId !== '__dashboard__') {
@@ -1782,13 +1776,10 @@ function App() {
 
                     addLog('info', `Opened file with options: ${response.filePath || 'Unknown'}. Columns: ${hdr.length}`);
 
-                    // Fetch total row count
-                    try {
-                        const total = await AppAPI.GetCSVRowCount();
-                        tabState.setTotalRowsForTab(tabId, total || 0);
-                    } catch (e) {
-                        console.warn('Failed to get total row count:', e);
-                    }
+                    // Row count is populated by the first grid query (GetDataAndHistogram
+                    // reports the total); reset to null so the indicator shows a spinner
+                    // until that query returns, instead of a separate full-file count scan.
+                    tabState.setTotalRowsForTab(tabId, null);
 
                     // Refresh histogram if time field detected
                     if (detectedTimeField) {

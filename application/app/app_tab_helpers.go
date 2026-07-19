@@ -38,25 +38,6 @@ func (a *App) readHeaderForTab(tab *FileTab) ([]string, error) {
 	return fileloader.ReadHeaderWithOptions(tab.FilePath, options, ingestTz)
 }
 
-// getRowCountForTab returns the total number of data rows for a specific tab (supports CSV, XLSX, JSON, and directories)
-func (a *App) getRowCountForTab(tab *FileTab) (int, error) {
-	if tab == nil || tab.FilePath == "" {
-		return 0, nil
-	}
-
-	// Pass full tab options including IngestTimezoneOverride for consistent cache keys
-	options := tab.Options
-
-	// Handle directory tabs
-	if tab.Options.IsDirectory {
-		return fileloader.GetRowCountForPath(tab.FilePath, options)
-	}
-
-	// Use proxy function that handles all file types with options
-	// IMPORTANT: Pass full options including IngestTimezoneOverride for consistent cache keys
-	return fileloader.GetRowCountWithOptions(tab.FilePath, options)
-}
-
 // getReaderForTab returns a reader for the tab's file (supports CSV, XLSX, JSON, and directories)
 // For directories, returns a DirectoryReader that iterates through all files
 func (a *App) getReaderForTab(tab *FileTab) (*csv.Reader, *os.File, error) {

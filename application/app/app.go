@@ -381,6 +381,13 @@ func (a *App) Startup(ctx context.Context) {
 		fileloader.SetJSONCache(a.queryCache)
 	}
 
+	// Honour the "maximum files when opening a directory" setting on the data-load
+	// path too, so the rows read match the files discovered and hashed at open time
+	// instead of silently loading every matching file.
+	fileloader.SetDirectoryFileLimitProvider(func() int {
+		return settings.GetEffectiveSettings().DirectoryFileLimit()
+	})
+
 	// Initialize plugin service
 	a.pluginService = plugin.NewPluginService(settings.NewSettingsService(), a)
 

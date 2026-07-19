@@ -30,6 +30,26 @@ type DirectoryDiscoveryOptions struct {
 	MaxDepth        int      // Maximum directory depth (0 = unlimited)
 }
 
+// directoryFileLimitProvider supplies the effective "maximum files when opening a
+// directory" setting to the data-load path. It is injected by the app layer (see
+// SetDirectoryFileLimitProvider) to avoid a fileloader -> settings import cycle,
+// mirroring how SetJSONCache injects the query cache. A nil provider or a
+// non-positive result means unlimited (load every matching file).
+var directoryFileLimitProvider func() int
+
+// SetDirectoryFileLimitProvider installs the callback used by directory reads to
+// honour the configured file limit, keeping the query/data path consistent with
+// the discovery and hash performed when the directory tab was opened.
+func SetDirectoryFileLimitProvider(f func() int) { directoryFileLimitProvider = f }
+
+// EffectiveDirectoryFileLimit returns the configured max files (0 = unlimited).
+func EffectiveDirectoryFileLimit() int {
+	if directoryFileLimitProvider != nil {
+		return directoryFileLimitProvider()
+	}
+	return 0
+}
+
 // DirectoryReader provides unified sequential access to all files in a directory
 type DirectoryReader struct {
 	info          *DirectoryInfo

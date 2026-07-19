@@ -313,6 +313,12 @@ func (s *Server) handleApplyQuery(ctx context.Context, _ *mcp.CallToolRequest, i
 	if err := s.dispatch(ctx, "apply_query", in, &out); err != nil {
 		return nil, applyQueryOut{}, err
 	}
+	// The frontend reply carries tabId/appliedQuery but not the match count, so
+	// compute it server-side with the same engine get_rows uses. The frontend just
+	// ran this exact query, so this hits the pipeline cache and is cheap.
+	if res, err := s.bridge.GetRows(in.TabID, in.Query, 0, 1); err == nil && res != nil {
+		out.MatchedRows = res.TotalRows
+	}
 	return nil, out, nil
 }
 

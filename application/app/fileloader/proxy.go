@@ -261,7 +261,8 @@ func getReaderFromBytes(data []byte, fileType FileType, jpath string) (*csv.Read
 func ReadHeaderForPath(path string, options FileOptions, ingestTz *time.Location) ([]string, error) {
 	if IsDirectory(path) {
 		info, err := DiscoverFiles(path, DirectoryDiscoveryOptions{
-			Pattern: options.FilePattern, // Use file pattern for file discovery
+			Pattern:  options.FilePattern, // Use file pattern for file discovery
+			MaxFiles: EffectiveDirectoryFileLimit(),
 		}, nil)
 		if err != nil {
 			return nil, err
@@ -276,7 +277,8 @@ func ReadHeaderForPath(path string, options FileOptions, ingestTz *time.Location
 func GetRowCountForPath(path string, options FileOptions) (int, error) {
 	if IsDirectory(path) {
 		info, err := DiscoverFiles(path, DirectoryDiscoveryOptions{
-			Pattern: options.FilePattern,
+			Pattern:  options.FilePattern,
+			MaxFiles: EffectiveDirectoryFileLimit(),
 		}, nil)
 		if err != nil {
 			return 0, err
@@ -292,7 +294,8 @@ func GetRowCountForPath(path string, options FileOptions) (int, error) {
 func GetReaderForPath(path string, options FileOptions) (interface{}, interface{}, error) {
 	if IsDirectory(path) {
 		info, err := DiscoverFiles(path, DirectoryDiscoveryOptions{
-			Pattern: options.FilePattern,
+			Pattern:  options.FilePattern,
+			MaxFiles: EffectiveDirectoryFileLimit(),
 		}, nil)
 		if err != nil {
 			return nil, nil, err

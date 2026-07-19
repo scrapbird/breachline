@@ -225,8 +225,8 @@ const Settings: React.FC<SettingsProps> = ({
                                     // invalid (empty or negative). 0 means unlimited.
                                     const value = parseInt(e.target.value);
                                     if (isNaN(value) || value < 0) {
-                                        setMaxDirFilesInput('500');
-                                        onSettingsChange(s => ({ ...s, max_directory_files: 500 }));
+                                        setMaxDirFilesInput('0');
+                                        onSettingsChange(s => ({ ...s, max_directory_files: 0 }));
                                     }
                                 }}
                                 style={{
