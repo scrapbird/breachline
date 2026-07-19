@@ -40,7 +40,7 @@ Open BreachLine and choose **File > Open File with Options**, then pick **Direct
 
 Apply that and the whole week lands in one grid, already sorted by time.
 
-![The full CloudTrail directory loaded as a single 8,227 row timeline](/images/cloudtrail-directory-loaded.png)
+![The full CloudTrail directory loaded as a single 8,227 row timeline](/blog/images/cloudtrail-directory-loaded.png)
 
 That is 1,384 separate gzip files, four regions, read and merged into 8,227 events on one timeline. The histogram across the top is every management event in the account bucketed over time, so a spike is obvious before you have typed anything. No files were extracted and nothing was written back to disk.
 
@@ -52,7 +52,7 @@ The search bar runs a small pipeline language. A stage starts with a verb, and s
 filter errorCode=* | columns eventTime, eventName, eventSource, errorCode, sourceIPAddress, awsRegion
 ```
 
-![175 failed API calls filtered from the week](/images/cloudtrail-failed-calls.png)
+![175 failed API calls filtered from the week](/blog/images/cloudtrail-failed-calls.png)
 
 175 rows out of 8,227, across every region, in about the time it takes to press Enter. The `AuthorizationPendingException` bursts on `sso.amazonaws.com` are a device login being polled, the `ResourceNotFoundException` runs against `lambda` are something reading functions that are not there. The histogram redraws to show only the failures, so you can see when they clustered.
 
@@ -64,7 +64,7 @@ Console logins are their own event, so filter to them and keep the source file c
 filter eventName=ConsoleLogin | columns eventTime, eventName, sourceIPAddress, awsRegion, __source_file__
 ```
 
-![Four console logins with the source file each came from](/images/cloudtrail-console-logins.png)
+![Four console logins with the source file each came from](/blog/images/cloudtrail-console-logins.png)
 
 Four logins for the week, all from the same address. The `__source_file__` column is the point here: each of these four rows was pulled from a different gzip object, and BreachLine interleaved them into one timeline by their event time. You are reading across files without ever having joined them yourself.
 
@@ -76,7 +76,7 @@ Read-only calls are noise when you are asking what happened to an account. Cloud
 filter readOnly=false | columns eventTime, eventName, eventSource, sourceIPAddress, awsRegion
 ```
 
-![576 mutating events isolated from the read-only noise](/images/cloudtrail-write-events.png)
+![576 mutating events isolated from the read-only noise](/blog/images/cloudtrail-write-events.png)
 
 576 mutating events out of the 8,227. `RunInstances` and `TerminateInstances`, `CreateLogGroup`, `RegisterManagedInstance`, the sign-in sequence around each console session. This is the list you actually walk during a review, and it came out of the same open folder with one more filter.
 
