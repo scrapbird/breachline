@@ -409,6 +409,13 @@ article > ul,
     max-width: 72ch;
 }
 
+/* Blog posts fill the full content column: prose, lists and images all match
+   the width of the code blocks and title instead of the 72ch reading measure. */
+.post > p,
+.post > ul {
+    max-width: none;
+}
+
 /* Post images: never exceed the content width (mobile-safe), styled like the
    home page hero image. */
 .post img {

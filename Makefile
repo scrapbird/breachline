@@ -38,7 +38,7 @@ ENV_GUARD = \
 SRC := set -a; . $(REPO)/secrets.env; set +a
 
 .PHONY: help venv init render edit-secrets view-secrets edit-config \
-        build build-payment-api build-sync-api build-website \
+        build build-payment-api build-sync-api build-website preview-website \
         tf-payment-api tf-sync-api tf-website \
         tf-payment-api-destroy tf-sync-api-destroy tf-website-destroy \
         enable-website disable-website enable-sync-api disable-sync-api \
@@ -126,8 +126,11 @@ build-payment-api:  ## @build Compile the payment-api Go lambda zips
 build-sync-api:  ## @build Compile the sync-api Go lambda zips
 	@cd infra/sync-api && ./build.sh
 
-build-website:  ## @build Build the Hugo website into infra/website/src/public
-	@cd infra/website/src && hugo --minify
+build-website:  ## @build Build the live website into infra/website/src/public (drafts excluded)
+	@cd infra/website/src && hugo --minify --cleanDestinationDir
+
+preview-website:  ## @build Preview the website WITH drafts (live reload) on 0.0.0.0:1313 (LAN-accessible)
+	@cd infra/website/src && hugo server -D --bind 0.0.0.0
 
 build: build-payment-api build-sync-api build-website  ## @core Build all lambda zips + the website
 

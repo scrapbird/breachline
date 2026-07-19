@@ -141,13 +141,18 @@ So: put the compressed PNG in `content/blog/images/`, reference it as `/blog/ima
 
 Use plain triple-backtick fences with **no language tag**. A language tag turns on Chroma syntax highlighting, whose inline-styled markup looks inconsistent next to the plain blocks. Keep every code block in a post plain so they render uniformly.
 
+## Drafts
+
+A post with `draft: true` in its frontmatter is excluded from the live build (`hugo --minify --cleanDestinationDir`, run by `make build-website`) so it never reaches the deployed site, and `--cleanDestinationDir` also removes a post's stale HTML from `public/` if you flip a previously published post to `draft: true`. It still renders locally under `make preview-website` (`hugo server -D`), so that is how you test a draft. Set `draft: false` (or remove the line) when it is ready to go live.
+
 ## Build, preview, publish
 
 ```
-make build-website        # regenerates infra/website/src/public via `hugo --minify`
+make build-website        # live build into infra/website/src/public (drafts excluded, stale files cleaned)
+make preview-website      # live-reload server WITH drafts, bound to 0.0.0.0:1313 (reachable over the LAN)
 ```
 
-Preview by serving `infra/website/src/public` (e.g. `python3 -m http.server` from that dir) and curl the post + an image to confirm both return 200. If you added images and they 404, `src/public` is stale - rebuild. If using `hugo server`, it may not hot-reload newly added theme static files; restart it.
+For a scripted check you can also serve `infra/website/src/public` (e.g. `python3 -m http.server` from that dir) and curl the post + an image to confirm both return 200 - but note `make build-website` excludes drafts, so a `draft: true` post will 404 there; use `make preview-website` to see it. If you added images and they 404, `src/public` is stale - rebuild.
 
 Commit the post markdown and the images in `content/blog/images/` (both are tracked). `src/public` is gitignored and does not get committed; the deploy rebuilds it fresh. The live site updates on the next `make deploy` / website deploy.
 
