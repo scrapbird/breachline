@@ -7,61 +7,74 @@ weight: 1
 
 BreachLine's query language is an SPL-like syntax designed for fast filtering of timestamped records.
 
+A query is a set of stages joined by the pipe character (`|`), and every stage starts with a keyword. To match rows, use the `filter` stage:
+
+```
+filter status="FAILED"
+```
+
+The rest of this page covers what goes inside a `filter` stage. See the [Query Pipeline](/docs/searching/query-pipeline/) guide for the other stages (`columns`, `after`, `before`, `dedup`, `limit`) and how to chain them.
+
 ## Field comparisons
 
-Compare a field to a value with the standard operators:
+Compare a field to a value with these operators:
 
-| Operator | Meaning                  | Example                    |
-|----------|--------------------------|----------------------------|
-| `=`      | equals                   | `status="FAILED"`          |
-| `!=`     | not equals               | `user!="root"`             |
-| `>` `<`  | greater / less than      | `bytes>1048576`            |
-| `>=` `<=`| greater / less or equal  | `status_code>=400`         |
-| `~`      | contains (case-insensitive substring) | `path~"/admin"`   |
-| `!~`     | does not contain         | `path!~"/health"`          |
+| Operator | Meaning                               | Example                    |
+|----------|---------------------------------------|----------------------------|
+| `=`      | equals (case-insensitive)             | `status="FAILED"`          |
+| `!=`     | not equals                            | `user!="root"`             |
+| `~`      | contains (case-insensitive substring) | `path~"/admin"`            |
+| `!~`     | does not contain                      | `path!~"/health"`          |
+
+Two shortcuts use a trailing `*`:
+
+- `field=*` matches any row where the field has a value. For example `filter errorCode=*` keeps only rows that carry an error code.
+- `field=value*` matches on a prefix. For example `filter eventName=Delete*` matches `DeleteRole`, `DeleteBucket`, and so on.
+
+Values that contain spaces must be quoted, for both the field and the value: `filter "user name"="Jane Doe"`.
 
 ## Boolean logic
 
-Combine terms with `AND`, `OR`, and `NOT`. Use parentheses to group:
+Combine terms with `AND`, `OR`, and `NOT`. A space between terms is treated as `AND`. Use parentheses to group:
 
 ```
-(status_code>=500 OR status_code=403) AND NOT source_ip="10.0.0.1"
+filter (status="FAILED" OR responseCode=403) AND NOT sourceIPAddress="10.0.0.1"
 ```
 
-A bare term with no field is treated as a full-text match across all columns:
+A bare term with no field is treated as a full-text substring match across all columns:
 
 ```
-"powershell" AND event_id=4688
+filter "powershell" AND eventName=RunInstances
 ```
 
 ## Time filters
 
-Restrict results to a window with `before` and `after`:
+`after` and `before` are their own stages. They accept absolute and relative values, and you can use both in one stage to bound a window:
 
 ```
 after "2025-08-01T00:00:00" before "2025-08-02T00:00:00"
 ```
 
-Relative ranges are also supported:
+Relative values are an offset back from now, written as a number and a unit (`s`, `m`, `h`, `d`, `w`, `mo`, `y`). `after 24h` means the last 24 hours:
 
 ```
-after -24h
+after 24h
 ```
 
 ## Dedup
 
-Collapse duplicate rows on one or more fields with `dedup`:
+`dedup` is its own stage. It keeps one row per unique combination of the fields you name:
 
 ```
-dedup source_ip, user_agent
+dedup sourceIPAddress, userAgent
 ```
 
 ## Putting it together
 
+Stages compose left to right, each separated by a pipe:
+
 ```
-status_code>=400 AND path~"/api/" after -7d dedup source_ip
+filter "powershell" AND eventName=RunInstances | after 7d | dedup sourceIPAddress
 ```
 
-This finds error responses on API routes in the last seven days, keeping one row per source IP.
-
-See the [Query Pipeline](/docs/searching/query-pipeline/) guide for column projection and more detail on time filters.
+This finds full-text matches for PowerShell on `RunInstances` events in the last seven days, and keeps one row per source IP.
