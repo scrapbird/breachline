@@ -16,5 +16,5 @@ Use the navigation on the left (or the menu button on mobile) to browse the docs
 - **Searching & Analysis** - the query language, the timeline histogram, tabs, and copying results.
 - **Workspaces** - local and sync workspaces, annotations, and exporting a timeline.
 - **Configuration** - settings, keybindings, and the cache system.
-- **Extending** - installing loader plugins and writing your own.
+- **Extending** - installing loader plugins, writing your own, and driving the app from an AI client over MCP.
 - **Reference** - security and data handling, plus troubleshooting.
