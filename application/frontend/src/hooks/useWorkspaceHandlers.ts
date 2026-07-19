@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 // @ts-ignore - Wails generated bindings
 import * as AppAPI from '../../wailsjs/go/app/App';
 import { DialogActions } from './useDialogState';
+import { showWorkspaceOpened, showWorkspaceClosed } from '../utils/workspaceView';
 
 interface UseWorkspaceHandlersParams {
     tabState: {
@@ -53,29 +54,8 @@ export function useWorkspaceHandlers({
                 return;
             }
             
-            setIsWorkspaceOpen(true);
-            setWorkspaceKey((prev) => prev + 1); // Force Dashboard remount
+            showWorkspaceOpened({ tabState, setIsWorkspaceOpen, setWorkspaceKey });
             addLog('info', 'Workspace file opened successfully');
-
-            // Create dashboard tab as sticky tab at first position
-            const dashboardTabId = '__dashboard__';
-            const existingDashboard = tabState.tabs.find(t => t.id === dashboardTabId);
-            if (!existingDashboard) {
-                tabState.createTab(dashboardTabId, 'Dashboard');
-            }
-            
-            // Switch to dashboard tab
-            tabState.switchTab(dashboardTabId);
-
-            // Refresh all tab grids to show annotations immediately
-            tabState.tabs.forEach((tabInfo) => {
-                if (tabInfo.id !== '__dashboard__') {
-                    const tab = tabState.getTabState(tabInfo.id);
-                    if (tab?.gridApi) {
-                        tab.gridApi.refreshInfiniteCache();
-                    }
-                }
-            });
         } catch (e: any) {
             const errorMsg = e?.message || String(e);
             if (errorMsg.includes('requires a valid license')) {
@@ -91,28 +71,13 @@ export function useWorkspaceHandlers({
     const handleCloseWorkspace = useCallback(async () => {
         try {
             await AppAPI.CloseWorkspace();
-            setIsWorkspaceOpen(false);
+            showWorkspaceClosed({ tabState, setIsWorkspaceOpen, setWorkspaceKey });
             addLog('info', 'Workspace closed');
-            
-            // Close dashboard tab
-            const dashboardTabId = '__dashboard__';
-            const existingDashboard = tabState.tabs.find(t => t.id === dashboardTabId);
-            if (existingDashboard) {
-                tabState.closeTab(dashboardTabId);
-            }
-            
-            // Refresh all tab grids to clear annotations
-            tabState.tabs.forEach((tabInfo) => {
-                const tab = tabState.getTabState(tabInfo.id);
-                if (tab?.gridApi) {
-                    tab.gridApi.refreshInfiniteCache();
-                }
-            });
         } catch (e: any) {
             const errorMsg = e?.message || String(e);
             addLog('error', 'Failed to close workspace: ' + errorMsg);
         }
-    }, [tabState, setIsWorkspaceOpen, addLog]);
+    }, [tabState, setIsWorkspaceOpen, setWorkspaceKey, addLog]);
 
     const handleCreateLocalWorkspace = useCallback(async () => {
         setOpeningWorkspace(true);
@@ -127,29 +92,8 @@ export function useWorkspaceHandlers({
                 return;
             }
             
-            setIsWorkspaceOpen(true);
-            setWorkspaceKey((prev) => prev + 1); // Force Dashboard remount
+            showWorkspaceOpened({ tabState, setIsWorkspaceOpen, setWorkspaceKey });
             addLog('info', 'Local workspace created and opened successfully');
-
-            // Create dashboard tab as sticky tab at first position
-            const dashboardTabId = '__dashboard__';
-            const existingDashboard = tabState.tabs.find(t => t.id === dashboardTabId);
-            if (!existingDashboard) {
-                tabState.createTab(dashboardTabId, 'Dashboard');
-            }
-            
-            // Switch to dashboard tab
-            tabState.switchTab(dashboardTabId);
-
-            // Refresh all tab grids to show annotations immediately
-            tabState.tabs.forEach((tabInfo) => {
-                if (tabInfo.id !== '__dashboard__') {
-                    const tab = tabState.getTabState(tabInfo.id);
-                    if (tab?.gridApi) {
-                        tab.gridApi.refreshInfiniteCache();
-                    }
-                }
-            });
 
             // Show success dialog
             showMessageDialog('Workspace Created', 'Local workspace has been created and opened successfully.', false);
@@ -184,29 +128,8 @@ export function useWorkspaceHandlers({
             // Check if workspace is now open
             const isOpen = await AppAPI.IsWorkspaceOpen();
             if (isOpen) {
-                setIsWorkspaceOpen(true);
-                setWorkspaceKey((prev) => prev + 1); // Force Dashboard remount
+                showWorkspaceOpened({ tabState, setIsWorkspaceOpen, setWorkspaceKey });
                 addLog('info', `Remote workspace "${name}" created and opened successfully`);
-
-                // Create dashboard tab as sticky tab at first position
-                const dashboardTabId = '__dashboard__';
-                const existingDashboard = tabState.tabs.find(t => t.id === dashboardTabId);
-                if (!existingDashboard) {
-                    tabState.createTab(dashboardTabId, 'Dashboard');
-                }
-                
-                // Switch to dashboard tab
-                tabState.switchTab(dashboardTabId);
-
-                // Refresh all tab grids to show annotations immediately
-                tabState.tabs.forEach((tabInfo) => {
-                    if (tabInfo.id !== '__dashboard__') {
-                        const tab = tabState.getTabState(tabInfo.id);
-                        if (tab?.gridApi) {
-                            tab.gridApi.refreshInfiniteCache();
-                        }
-                    }
-                });
             }
 
             // Clear loading state and show success dialog

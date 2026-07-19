@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 // @ts-ignore - Wails generated bindings
 import * as SyncAPI from '../../wailsjs/go/sync/SyncService';
 import { DialogActions } from './useDialogState';
+import { showWorkspaceOpened, showWorkspaceClosed } from '../utils/workspaceView';
 
 interface UseSyncHandlersParams {
     tabState: {
@@ -105,12 +106,7 @@ export function useSyncHandlers({
             
             // If a remote workspace was open, it was closed by the backend - update UI state
             if (wasRemoteWorkspace) {
-                setIsWorkspaceOpen(false);
-                setWorkspaceKey((prev) => prev + 1); // Force Dashboard remount
-                // Close the dashboard tab since workspace is closed
-                if (tabState.tabs.some(t => t.id === '__dashboard__')) {
-                    tabState.closeTab('__dashboard__');
-                }
+                showWorkspaceClosed({ tabState, setIsWorkspaceOpen, setWorkspaceKey });
                 addLog('info', 'Remote workspace closed due to logout');
             }
             
@@ -136,28 +132,9 @@ export function useSyncHandlers({
             }
             
             // Success - show confirmation and update workspace status
-            setIsWorkspaceOpen(true);
-            setWorkspaceKey((prev) => prev + 1); // Force Dashboard remount
+            showWorkspaceOpened({ tabState, setIsWorkspaceOpen, setWorkspaceKey });
             showMessageDialog('Remote Workspace Opened', `Successfully opened remote workspace: ${workspaceName}`, false);
             addLog('info', `Successfully opened remote workspace: ${workspaceName}`);
-            
-            // Create dashboard tab if it doesn't exist
-            if (!tabState.tabs.some(t => t.id === '__dashboard__')) {
-                tabState.createTab('__dashboard__', 'Dashboard');
-            }
-            
-            // Switch to dashboard (frontend only - don't notify backend)
-            tabState.switchTab('__dashboard__');
-
-            // Refresh all tab grids to show annotations immediately
-            tabState.tabs.forEach((tabInfo) => {
-                if (tabInfo.id !== '__dashboard__') {
-                    const tab = tabState.getTabState(tabInfo.id);
-                    if (tab?.gridApi) {
-                        tab.gridApi.refreshInfiniteCache();
-                    }
-                }
-            });
         } catch (e: any) {
             showMessageDialog('Error', `Failed to open remote workspace "${workspaceName}": ${e?.message || String(e)}`, true);
             addLog('error', `Remote workspace error: ${e?.message || String(e)}`);

@@ -4,6 +4,8 @@ import * as BridgeAPI from '../../wailsjs/go/mcpserver/BridgeService';
 import * as AppAPI from '../../wailsjs/go/app/App';
 import * as WorkspaceManagerAPI from '../../wailsjs/go/app/WorkspaceManager';
 import { FileOptions } from '../types/FileOptions';
+import { showWorkspaceOpened, showWorkspaceClosed } from '../utils/workspaceView';
+import { annotateRowsByHash, deleteRowAnnotationsByHash } from '../utils/annotations';
 
 // A command dispatched by the MCP server for the visible window to perform.
 interface McpCommand {
@@ -22,6 +24,7 @@ export interface McpBridgeDeps {
   closeTab: (tabId: string) => Promise<void> | void;
   tabState: any;
   setIsWorkspaceOpen: (open: boolean) => void;
+  setWorkspaceKey: (updater: (prev: number) => number) => void;
   addLog: (level: 'info' | 'warn' | 'error', message: string) => void;
 }
 
@@ -111,12 +114,12 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
     }
     case 'open_workspace': {
       await WorkspaceManagerAPI.OpenWorkspace(p.path);
-      deps.setIsWorkspaceOpen(true);
+      showWorkspaceOpened(deps);
       return { ok: true };
     }
     case 'close_workspace': {
       await AppAPI.CloseWorkspace();
-      deps.setIsWorkspaceOpen(false);
+      showWorkspaceClosed(deps);
       return { ok: true };
     }
     case 'add_file_to_workspace': {
@@ -131,15 +134,15 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
     case 'annotate_rows': {
       const st = tabState.getTabState(p.tabId);
       if (!st) throw new Error(`no open tab with id ${p.tabId}`);
+      // Same operation the annotate button performs for an explicit row
+      // selection. By-hash (not by-path) so it works on directory-backed tabs.
+      if (!st.fileHash) throw new Error(`tab ${p.tabId} has no file hash yet`);
       const rows: number[] = p.rowIndices || [];
-      await AppAPI.AddAnnotations(
-        st.filePath,
-        st.fileOptions || {},
+      await annotateRowsByHash(
+        { fileHash: st.fileHash, fileOptions: st.fileOptions, timeField: st.timeField, appliedQuery: st.appliedQuery },
         rows,
-        st.timeField || '',
         p.note || '',
         p.color || 'grey',
-        st.appliedQuery || '',
       );
       st.gridApi?.refreshInfiniteCache?.();
       return { ok: true, count: rows.length };
@@ -147,13 +150,11 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
     case 'delete_annotations': {
       const st = tabState.getTabState(p.tabId);
       if (!st) throw new Error(`no open tab with id ${p.tabId}`);
+      if (!st.fileHash) throw new Error(`tab ${p.tabId} has no file hash yet`);
       const rows: number[] = p.rowIndices || [];
-      await AppAPI.DeleteAnnotations(
-        st.filePath,
-        st.fileOptions || {},
+      await deleteRowAnnotationsByHash(
+        { fileHash: st.fileHash, fileOptions: st.fileOptions, timeField: st.timeField, appliedQuery: st.appliedQuery },
         rows,
-        st.timeField || '',
-        st.appliedQuery || '',
       );
       st.gridApi?.refreshInfiniteCache?.();
       return { ok: true, count: rows.length };

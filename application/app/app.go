@@ -935,20 +935,6 @@ func (a *App) AddFileToWorkspaceByHash(fileHash string, opts interfaces.FileOpti
 	return a.workspaceService.AddFileToWorkspace(fileHash, opts, filePath, "")
 }
 
-func (a *App) AddAnnotations(filePath string, opts interfaces.FileOptions, rowIndices []int, timeField string, note string, color string, query string) error {
-	if a.workspaceService == nil {
-		return fmt.Errorf("workspace service not initialized")
-	}
-
-	// Calculate file hash using hardcoded key for consistent hashing
-	fileHash, err := CalculateFileHash(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to calculate file hash: %w", err)
-	}
-
-	return a.workspaceService.AddAnnotations(fileHash, opts, rowIndices, timeField, note, color, query)
-}
-
 func (a *App) AddAnnotationsByHash(fileHash string, opts interfaces.FileOptions, rowIndices []int, timeField string, note string, color string, query string) error {
 	if a.workspaceService == nil {
 		return fmt.Errorf("workspace service not initialized")
@@ -1037,20 +1023,6 @@ func (a *App) GetRowAnnotations(fileHash string, opts interfaces.FileOptions, ro
 	}
 
 	return displayResults, nil
-}
-
-func (a *App) DeleteAnnotations(filePath string, opts interfaces.FileOptions, rowIndices []int, timeField string, query string) error {
-	if a.workspaceService == nil {
-		return fmt.Errorf("workspace service not initialized")
-	}
-
-	// Calculate file hash using hardcoded key for consistent hashing
-	fileHash, err := CalculateFileHash(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to calculate file hash: %w", err)
-	}
-
-	return a.workspaceService.DeleteRowAnnotations(fileHash, opts, rowIndices, timeField, query)
 }
 
 func (a *App) DeleteAnnotationsByHash(fileHash string, opts interfaces.FileOptions, rowIndices []int, timeField string, query string) error {

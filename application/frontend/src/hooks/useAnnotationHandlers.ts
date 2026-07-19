@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 // @ts-ignore - Wails generated bindings
 import * as AppAPI from '../../wailsjs/go/app/App';
 import { DialogActions } from './useDialogState';
+import { annotateRowsByHash, deleteRowAnnotationsByHash } from '../utils/annotations';
 
 interface UseAnnotationHandlersProps {
     tabState: any;
@@ -170,14 +171,16 @@ export function useAnnotationHandlers(props: UseAnnotationHandlersProps) {
                 }
             } else {
                 // Use existing method for specific row indices
-                await WorkspaceAPI.AddAnnotationsByHash(
-                    currentTab.fileHash,
-                    currentTab.fileOptions || {},
+                await annotateRowsByHash(
+                    {
+                        fileHash: currentTab.fileHash,
+                        fileOptions: currentTab.fileOptions,
+                        timeField: currentTab.timeField,
+                        appliedQuery: currentTab.appliedQuery,
+                    },
                     annotationRowIndices,
-                    currentTab.timeField || '',
                     note,
                     color,
-                    currentTab.appliedQuery || ''
                 );
 
                 const rowText = annotationRowIndices.length === 1 ? 'row' : 'rows';
@@ -292,12 +295,14 @@ export function useAnnotationHandlers(props: UseAnnotationHandlersProps) {
                 }
             } else {
                 // Use existing method for specific row indices
-                await WorkspaceAPI.DeleteAnnotationsByHash(
-                    currentTab.fileHash,
-                    currentTab.fileOptions || {},
+                await deleteRowAnnotationsByHash(
+                    {
+                        fileHash: currentTab.fileHash,
+                        fileOptions: currentTab.fileOptions,
+                        timeField: currentTab.timeField,
+                        appliedQuery: currentTab.appliedQuery,
+                    },
                     annotationRowIndices,
-                    currentTab.timeField || '',
-                    currentTab.appliedQuery || ''
                 );
 
                 const rowText = annotationRowIndices.length === 1 ? 'row' : 'rows';

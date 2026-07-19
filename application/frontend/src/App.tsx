@@ -2132,6 +2132,7 @@ function App() {
         closeTab: handleTabClose,
         tabState,
         setIsWorkspaceOpen,
+        setWorkspaceKey,
         addLog,
     });
 
