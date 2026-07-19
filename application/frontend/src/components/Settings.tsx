@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import TimezoneSelector from './TimezoneSelector';
 import PluginSettingsTab from './PluginSettingsTab';
+import McpSettingsSection from './McpSettingsSection';
 
 interface SettingsProps {
     show: boolean;
@@ -15,6 +16,8 @@ interface SettingsProps {
         pin_timestamp_column: boolean;
         max_directory_files: number;
         enable_plugins: boolean;
+        mcp_server_enabled: boolean;
+        mcp_server_address: string;
     };
     onCancel: () => void;
     onSave: () => void;
@@ -31,7 +34,7 @@ const Settings: React.FC<SettingsProps> = ({
     onLog = () => {},
 }) => {
     // Tab state
-    const [activeTab, setActiveTab] = useState<'general' | 'cache' | 'plugins'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'cache' | 'plugins' | 'ai'>('general');
     
     // Local state for cache size input to allow smooth editing
     const [cacheSizeInput, setCacheSizeInput] = useState<string>(settings.cache_size_limit_mb.toString());
@@ -124,6 +127,21 @@ const Settings: React.FC<SettingsProps> = ({
                         }}
                     >
                         Plugins
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('ai')}
+                        style={{
+                            padding: '10px 16px',
+                            border: 'none',
+                            background: activeTab === 'ai' ? '#333' : 'transparent',
+                            color: activeTab === 'ai' ? '#fff' : '#999',
+                            borderBottom: activeTab === 'ai' ? '2px solid #3a6' : '2px solid transparent',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            fontWeight: activeTab === 'ai' ? 500 : 400,
+                        }}
+                    >
+                        AI (MCP)
                     </button>
                 </div>
                 
@@ -336,6 +354,13 @@ const Settings: React.FC<SettingsProps> = ({
                             enablePlugins={settings.enable_plugins}
                             onEnablePluginsChange={(enabled) => onSettingsChange(s => ({ ...s, enable_plugins: enabled }))}
                             onLog={onLog}
+                        />
+                    )}
+
+                    {activeTab === 'ai' && (
+                        <McpSettingsSection
+                            settings={settings}
+                            onSettingsChange={onSettingsChange}
                         />
                     )}
                 </div>

@@ -107,6 +107,21 @@ func GetEffectiveSettings() Settings {
 			settings.EnablePlugins = vb
 		}
 	}
+	if v, ok := m["mcp_server_enabled"]; ok {
+		if vb, okb := v.(bool); okb {
+			settings.MCPServerEnabled = vb
+		}
+	}
+	if v, ok := m["mcp_server_address"]; ok {
+		if vs, oks := v.(string); oks && vs != "" {
+			settings.MCPServerAddress = vs
+		}
+	}
+	if v, ok := m["mcp_server_token"]; ok {
+		if vs, oks := v.(string); oks {
+			settings.MCPServerToken = vs
+		}
+	}
 	if v, ok := m["plugins"]; ok {
 		// Parse plugins array
 		if pluginsArray, ok := v.([]interface{}); ok {

@@ -52,6 +52,7 @@ import { useSettingsHandlers, AppSettings, defaultSettings } from './hooks/useSe
 import { FileItem } from './components/FuzzyFinderDialog';
 import { useWorkspaceHandlers } from './hooks/useWorkspaceHandlers';
 import { useMenuEvents } from './hooks/useMenuEvents';
+import { useMcpBridge } from './hooks/useMcpBridge';
 import { useSyncHandlers } from './hooks/useSyncHandlers';
 
 // Import custom hooks
@@ -288,6 +289,8 @@ function App() {
                         pin_timestamp_column: s.pin_timestamp_column ?? false,
                         max_directory_files: s.max_directory_files ?? 500,
                         enable_plugins: s.enable_plugins ?? false,
+                        mcp_server_enabled: s.mcp_server_enabled ?? false,
+                        mcp_server_address: s.mcp_server_address ?? '127.0.0.1:8765',
                     };
                     setSettings(loaded);
                     setAppliedDisplayTZ(loaded.display_timezone);
@@ -2119,6 +2122,18 @@ function App() {
             })();
         }
     }, [showAbout]);
+
+    // Bridge MCP commands to the live UI so AI-driven actions appear in this
+    // window and the user can keep driving the same session by hand.
+    useMcpBridge({
+        openFile: handleDashboardFileOpen,
+        applyQuery: handleApplySearch,
+        changeTab: handleTabChange,
+        closeTab: handleTabClose,
+        tabState,
+        setIsWorkspaceOpen,
+        addLog,
+    });
 
     // Monitor license dialog state and trigger login when user closes the re-auth dialog
     useEffect(() => {

@@ -42,6 +42,12 @@ type Settings struct {
 	// Plugin loader settings
 	EnablePlugins bool           `yaml:"enable_plugins" json:"enable_plugins"`
 	Plugins       []PluginConfig `yaml:"plugins,omitempty" json:"plugins,omitempty"`
+	// MCP server settings. When enabled, an MCP server listens on MCPServerAddress
+	// (a host:port string) so an AI client can drive this session. MCPServerToken
+	// is an auto-generated bearer token required by clients; not editable in the UI.
+	MCPServerEnabled bool   `yaml:"mcp_server_enabled" json:"mcp_server_enabled"`
+	MCPServerAddress string `yaml:"mcp_server_address" json:"mcp_server_address"`
+	MCPServerToken   string `yaml:"mcp_server_token,omitempty" json:"mcp_server_token,omitempty"`
 }
 
 // CacheManager interface defines methods that SettingsService needs for cache management
@@ -49,6 +55,12 @@ type Settings struct {
 type CacheManager interface {
 	ClearAllTabCaches()
 	UpdateCacheSize()
+}
+
+// MCPController is implemented by the MCP server so the settings service can
+// (re)start or stop it when the MCP settings change.
+type MCPController interface {
+	ApplyMCPConfig(enabled bool, address, token string)
 }
 
 // defaultSettings defines the built-in defaults.
@@ -73,4 +85,7 @@ var defaultSettings = Settings{
 	// Plugin support disabled by default
 	EnablePlugins: false,
 	Plugins:       []PluginConfig{},
+	// MCP server disabled by default; loopback address so it is never exposed off-host
+	MCPServerEnabled: false,
+	MCPServerAddress: "127.0.0.1:8765",
 }

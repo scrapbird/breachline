@@ -14,8 +14,9 @@ import (
 
 // SettingsService manages reading/writing settings from disk.
 type SettingsService struct {
-	ctx          context.Context
-	cacheManager CacheManager
+	ctx           context.Context
+	cacheManager  CacheManager
+	mcpController MCPController
 }
 
 func NewSettingsService() *SettingsService {
@@ -25,6 +26,12 @@ func NewSettingsService() *SettingsService {
 // SetCacheManager allows the main function to inject the cache manager
 func (s *SettingsService) SetCacheManager(cm CacheManager) {
 	s.cacheManager = cm
+}
+
+// SetMCPController allows the main function to inject the MCP server controller
+// so it can be (re)started or stopped when the MCP settings change.
+func (s *SettingsService) SetMCPController(c MCPController) {
+	s.mcpController = c
 }
 
 // Startup receives the Wails context
@@ -137,6 +144,21 @@ func (s *SettingsService) GetSettings() (Settings, error) {
 			settings.EnablePlugins = vb
 		}
 	}
+	if v, ok := m["mcp_server_enabled"]; ok {
+		if vb, okb := v.(bool); okb {
+			settings.MCPServerEnabled = vb
+		}
+	}
+	if v, ok := m["mcp_server_address"]; ok {
+		if vs, oks := v.(string); oks && strings.TrimSpace(vs) != "" {
+			settings.MCPServerAddress = strings.TrimSpace(vs)
+		}
+	}
+	if v, ok := m["mcp_server_token"]; ok {
+		if vs, oks := v.(string); oks {
+			settings.MCPServerToken = vs
+		}
+	}
 	if v, ok := m["plugins"]; ok {
 		// Parse plugins array
 		if pluginsArray, ok := v.([]interface{}); ok {
@@ -182,6 +204,23 @@ func (s *SettingsService) SaveSettings(in Settings) error {
 	old := GetEffectiveSettings()
 	sortChanged := old.SortByTime != in.SortByTime || old.SortDescending != in.SortDescending
 	cacheSizeChanged := old.CacheSizeLimitMB != in.CacheSizeLimitMB
+
+	// Resolve MCP settings. The frontend does not send the token, so preserve the
+	// existing one; generate a fresh one the first time the server is enabled.
+	mcpAddress := strings.TrimSpace(in.MCPServerAddress)
+	if mcpAddress == "" {
+		mcpAddress = strings.TrimSpace(old.MCPServerAddress)
+	}
+	if mcpAddress == "" {
+		mcpAddress = defaultSettings.MCPServerAddress
+	}
+	mcpToken := strings.TrimSpace(old.MCPServerToken)
+	if in.MCPServerEnabled && mcpToken == "" {
+		mcpToken = strings.ReplaceAll(uuid.NewString(), "-", "")
+	}
+	mcpChanged := old.MCPServerEnabled != in.MCPServerEnabled ||
+		old.MCPServerAddress != mcpAddress ||
+		old.MCPServerToken != mcpToken
 
 	// Build a minimal map containing only non-default values to avoid zero-value serialization pitfalls
 	data := make(map[string]any)
@@ -289,6 +328,17 @@ func (s *SettingsService) SaveSettings(in Settings) error {
 		data["plugins"] = pluginsToSave
 	}
 
+	// Persist MCP settings (address/token preserved even when the server is off)
+	if in.MCPServerEnabled != defaultSettings.MCPServerEnabled {
+		data["mcp_server_enabled"] = in.MCPServerEnabled
+	}
+	if mcpAddress != defaultSettings.MCPServerAddress {
+		data["mcp_server_address"] = mcpAddress
+	}
+	if mcpToken != "" {
+		data["mcp_server_token"] = mcpToken
+	}
+
 	path, err := settingsFilePath()
 	if err != nil {
 		return err
@@ -302,6 +352,9 @@ func (s *SettingsService) SaveSettings(in Settings) error {
 		// Clear caches if sort settings changed
 		if sortChanged && s.cacheManager != nil {
 			s.cacheManager.ClearAllTabCaches()
+		}
+		if mcpChanged && s.mcpController != nil {
+			s.mcpController.ApplyMCPConfig(in.MCPServerEnabled, mcpAddress, mcpToken)
 		}
 		return nil
 	}
@@ -326,6 +379,11 @@ func (s *SettingsService) SaveSettings(in Settings) error {
 	// Update cache size if cache size setting changed
 	if cacheSizeChanged && s.cacheManager != nil {
 		s.cacheManager.UpdateCacheSize()
+	}
+
+	// (Re)start or stop the MCP server if its settings changed
+	if mcpChanged && s.mcpController != nil {
+		s.mcpController.ApplyMCPConfig(in.MCPServerEnabled, mcpAddress, mcpToken)
 	}
 
 	return nil

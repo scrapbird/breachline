@@ -261,6 +261,10 @@ type Settings struct {
 - Cache toggle: Enable/disable query result caching
 - Format changes: Affect timestamp display in grid and exports
 
+### MCP Server ([app/mcpserver](../app/mcpserver))
+
+Optional, off-by-default MCP server that lets an AI client drive the running window. It is self-contained: it depends only on the `AppBridge` interface (implemented by [app/mcp_bridge.go](../app/mcp_bridge.go)) and never imports the `app` package. Read tools are answered on the backend; action tools are dispatched to the frontend via an `mcp:command` event and executed by [useMcpBridge](../frontend/src/hooks/useMcpBridge.ts) using the same handlers a person uses, so AI-driven and human-driven work share one live session. Lifecycle is controlled from settings through the `MCPController` interface. See [MCP_SERVER.md](./MCP_SERVER.md) for the full tool list and configuration.
+
 ### Time Management ([time.go](../app/time.go))
 
 **Timestamp Parsing:**

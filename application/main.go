@@ -6,6 +6,7 @@ import (
 	"runtime"
 
 	"breachline/app"
+	"breachline/app/mcpserver"
 	"breachline/app/settings"
 	"breachline/app/sync"
 
@@ -47,6 +48,11 @@ func main() {
 	workspace.SetSyncClient(syncService)
 	// Set workspace manager on sync service so it can open remote workspaces
 	syncService.SetWorkspaceManager(workspace)
+
+	// MCP server: lets an AI client drive this session when enabled in Settings.
+	mcpServer := mcpserver.New(app.NewMCPAppBridge(appInstance), "1.0.0")
+	mcpBridgeService := mcpserver.NewBridgeService(mcpServer)
+	settingsService.SetMCPController(mcpServer)
 
 	// Set up menu updater for sync service (no-op in Wails v2)
 	menuManager := &MenuManager{}
@@ -228,6 +234,10 @@ func main() {
 			license.Startup(ctx)
 			workspace.Startup(ctx)
 			syncService.Startup(ctx)
+			// Start the MCP server if it is enabled in settings.
+			mcpServer.Startup(ctx)
+			eff := settings.GetEffectiveSettings()
+			mcpServer.ApplyMCPConfig(eff.MCPServerEnabled, eff.MCPServerAddress, eff.MCPServerToken)
 		},
 		Bind: []interface{}{
 			appInstance,
@@ -235,6 +245,7 @@ func main() {
 			license,
 			workspace,
 			syncService,
+			mcpBridgeService,
 		},
 	})
 

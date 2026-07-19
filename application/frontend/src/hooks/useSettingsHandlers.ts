@@ -13,6 +13,8 @@ export interface AppSettings {
     pin_timestamp_column: boolean;
     max_directory_files: number;
     enable_plugins: boolean;
+    mcp_server_enabled: boolean;
+    mcp_server_address: string;
 }
 
 export const defaultSettings: AppSettings = {
@@ -26,6 +28,8 @@ export const defaultSettings: AppSettings = {
     pin_timestamp_column: false,
     max_directory_files: 500,
     enable_plugins: false,
+    mcp_server_enabled: false,
+    mcp_server_address: '127.0.0.1:8765',
 };
 
 interface UseSettingsHandlersParams {
@@ -93,6 +97,8 @@ export function useSettingsHandlers({
                 pin_timestamp_column: settings.pin_timestamp_column,
                 max_directory_files: settings.max_directory_files,
                 enable_plugins: settings.enable_plugins,
+                mcp_server_enabled: settings.mcp_server_enabled,
+                mcp_server_address: settings.mcp_server_address,
             };
             // Cast to any - Wails will handle the type conversion automatically
             await SettingsAPI.SaveSettings(payload as any);
