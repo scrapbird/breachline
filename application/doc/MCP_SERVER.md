@@ -6,7 +6,7 @@ The server is off by default. It is a free feature, but the workspace and annota
 
 ## Enabling it
 
-Open **Settings -> AI (MCP)** and tick **Enable MCP server**, then press Save. The listen address defaults to `127.0.0.1:8765`; keep it on a loopback address so the server is never reachable off this machine. Saving generates a bearer token, shown in the same panel, that clients must present.
+Open **Settings -> MCP** and tick **Enable MCP server**, then press Save. The listen address defaults to `127.0.0.1:8765`; keep it on a loopback address so the server is never reachable off this machine. Saving generates a bearer token, shown in the same panel, that clients must present.
 
 The panel also shows a ready-to-paste client command, for example:
 

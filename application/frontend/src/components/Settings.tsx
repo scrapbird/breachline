@@ -141,7 +141,7 @@ const Settings: React.FC<SettingsProps> = ({
                             fontWeight: activeTab === 'ai' ? 500 : 400,
                         }}
                     >
-                        AI (MCP)
+                        MCP
                     </button>
                 </div>
                 
