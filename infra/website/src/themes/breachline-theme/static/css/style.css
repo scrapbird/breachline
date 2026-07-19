@@ -409,6 +409,18 @@ article > ul,
     max-width: 72ch;
 }
 
+/* Post images: never exceed the content width (mobile-safe), styled like the
+   home page hero image. */
+.post img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1.5rem 0;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
 /* Code & data - monospace accent ties the site to the product */
 code, pre, kbd, samp {
     font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
