@@ -21,7 +21,7 @@ BreachLine skips that entirely. It reads the gzip files where they sit, pulls th
 
 The only prep is copying the objects down. Keep the folder structure, it does not matter how deep it is:
 
-```sh
+```
 aws s3 cp \
   s3://cloudtrail-logs-94403pzrvsqdgdi1a3m3/AWSLogs/164723697561/CloudTrail/ \
   ~/investigations/scrappylabs-cloudtrail/AWSLogs/164723697561/CloudTrail/ \
