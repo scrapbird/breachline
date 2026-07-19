@@ -104,17 +104,24 @@ DISPLAY=:0 import -window "$WID" shot.png
 
 Then Read the PNG to confirm it shows what you expect before using it.
 
-## Resize screenshots (keep them light)
+## Compress screenshots (keep quality, keep them light)
 
-Blog screenshots display at roughly the content width and zoom to ~1200px. Resize to 1200px wide and quantize - dark UI screenshots take 64 colors with no visible loss. Do this into the blog-local images dir (create it if this is the first post with images):
+Keep the screenshots **24-bit truecolor and lossless**. Do NOT quantize with `-colors` and do NOT downscale:
+
+- The app UI is dark with subtle gradients (the histogram, the window background). Palette-reducing it (e.g. `-colors 64`) bands the blacks into visible grey speckle and softens text. This looked "fuzzy with grey areas in the blacks" and had to be redone. Never do it.
+- The native window capture is already ~1740px wide, which is the right size: crisp at the content width and still sharp when the lightbox zooms it. Downscaling (`-resize 1200x`) only softens the text, so skip it.
+
+All you need is metadata stripping plus max lossless zlib compression, into the blog-local images dir (create it if this is the first post with images):
 
 ```
 mkdir -p infra/website/src/content/blog/images
-convert shot.png -resize 1200x -strip -colors 64 -define png:compression-level=9 \
+convert shot.png -strip -define png:compression-level=9 -define png:compression-filter=5 \
   infra/website/src/content/blog/images/<name>.png
 ```
 
-Typical result: a full-window shot drops from ~270KB to ~110KB. Read the output once to confirm text is still crisp.
+Typical result: full-window dark-UI captures land at ~70KB to ~280KB each, lossless. That is fine for the web, especially for zoomable screenshots. Read the output once to confirm the blacks are clean (no grey speckle) and the text is crisp.
+
+If `pngquant`/`oxipng`/`zopflipng` are installed you can shrink further, but only losslessly (`oxipng -o max <file>`); never lossy-quantize the dark UI. As of the last run only ImageMagick `convert` was available, so the lossless `convert` above is the reliable path.
 
 ## Embed images so they zoom
 
@@ -128,7 +135,7 @@ You do NOT need any extra markup. The theme already handles it:
 - `.post img` CSS (in `themes/breachline-theme/static/css/style.css`) makes images `max-width:100%` so they never overflow on mobile, and frames them like the home page hero.
 - `themes/breachline-theme/static/js/post-lightbox.js` (loaded by `layouts/blog/single.html`) makes every post image open enlarged in a modal on click.
 
-So: put the resized PNG in `content/blog/images/`, reference it as `/blog/images/<name>.png`, and it is automatically responsive and click-to-zoom.
+So: put the compressed PNG in `content/blog/images/`, reference it as `/blog/images/<name>.png`, and it is automatically responsive and click-to-zoom.
 
 ## Code blocks
 
@@ -157,3 +164,4 @@ Commit the post markdown and the images in `content/blog/images/` (both are trac
 - Filters need the `filter` keyword; there are no `>`/`<`/`>=`/`<=` operators.
 - Post images go in `content/blog/images/` (served at `/blog/images/<name>.png`), not the theme static dir and not `src/public/images/` (that is build output).
 - After adding images, rebuild so `src/public` is current before previewing.
+- Screenshots: keep them 24-bit lossless. Never `-colors`-quantize or downscale the dark UI - it bands the blacks into grey speckle and softens text.

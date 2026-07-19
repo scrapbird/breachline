@@ -444,7 +444,6 @@ pre {
     border-radius: 8px;
     padding: 1rem 1.25rem;
     margin-bottom: 1rem;
-    overflow-x: auto;
     max-width: 100%;
 }
 
@@ -453,6 +452,11 @@ pre code {
     color: #eee;
     padding: 0;
     font-size: 0.9rem;
+    /* Wrap long lines (e.g. S3 paths) instead of forcing the block wide.
+       overflow-wrap: anywhere also lets unbroken tokens break, and keeps the
+       block from widening its flex/grid container. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 /* Footer */
