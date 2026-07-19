@@ -34,6 +34,20 @@ Powerful SPL-like filter syntax for real-time data filtering. Create complex que
 
 <div class="feature-card">
 
+## AI Investigations over MCP
+
+Let an AI agent drive the same window you are looking at. BreachLine can host an MCP server so a local AI client opens files, runs queries, and annotates rows in the live UI, not a separate copy of your data.
+
+- **Watch it work**: every query the agent runs lands in your grid in real time
+- **No blind trust**: verify findings on screen instead of re-checking a summary
+- **Off by default**: loopback only, bearer token required, and free to use
+
+[Learn more](/docs/extending/mcp-server/)
+
+</div>
+
+<div class="feature-card">
+
 ## Native Format Support
 
 - **CSV Files**: Standard comma-separated values
