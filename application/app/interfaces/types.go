@@ -47,6 +47,11 @@ type FileTab struct {
 	FileHash string      // Hash of the file content
 	Options  FileOptions // File options (jpath, noHeaderRow, ingestTimezoneOverride)
 
+	// Directory tabs only: Truncated is true when more matching files existed than
+	// the configured limit allowed, so only FilesLoaded of them were opened.
+	Truncated   bool
+	FilesLoaded int
+
 	// Cached, pre-sorted rows for this tab's CSV
 	CacheMu         sync.RWMutex
 	SortedHeader    []string

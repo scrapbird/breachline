@@ -19,6 +19,7 @@ type DirectoryInfo struct {
 	Files      []string // List of discovered file paths (absolute)
 	TotalFiles int      // Total files found
 	TotalSize  int64    // Total size in bytes
+	Truncated  bool     // True if more matching files existed than MaxFiles allowed (some were skipped)
 }
 
 // DirectoryDiscoveryOptions controls file discovery behavior
@@ -80,7 +81,7 @@ func DiscoverFiles(dirPath string, options DirectoryDiscoveryOptions, progress D
 	}
 
 	// Use doublestar library for all pattern matching - it handles optimization automatically
-	files, totalSize, err := discoverFilesWithDoublestar(absPath, options, progress)
+	files, totalSize, truncated, err := discoverFilesWithDoublestar(absPath, options, progress)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +91,18 @@ func DiscoverFiles(dirPath string, options DirectoryDiscoveryOptions, progress D
 		Files:      files,
 		TotalFiles: len(files),
 		TotalSize:  totalSize,
+		Truncated:  truncated,
 	}, nil
 }
 
-// discoverFilesWithDoublestar uses doublestar library for efficient pattern matching
-func discoverFilesWithDoublestar(rootPath string, options DirectoryDiscoveryOptions, progress DiscoveryProgressCallback) ([]string, int64, error) {
+// discoverFilesWithDoublestar uses doublestar library for efficient pattern matching.
+// Returns the discovered files, their total size, and whether discovery was truncated
+// (more eligible files existed than MaxFiles allowed). MaxFiles == 0 means unlimited.
+func discoverFilesWithDoublestar(rootPath string, options DirectoryDiscoveryOptions, progress DiscoveryProgressCallback) ([]string, int64, bool, error) {
 	var files []string
 	var totalSize int64
 	dirsScanned := 0
+	truncated := false
 
 	// Create the full pattern by combining rootPath with the user pattern
 	fullPattern := filepath.Join(rootPath, options.Pattern)
@@ -106,7 +111,7 @@ func discoverFilesWithDoublestar(rootPath string, options DirectoryDiscoveryOpti
 	// For v4, we need to use the filesystem-based API
 	matches, err := doublestar.FilepathGlob(fullPattern)
 	if err != nil {
-		return nil, 0, fmt.Errorf("pattern matching failed: %w", err)
+		return nil, 0, false, fmt.Errorf("pattern matching failed: %w", err)
 	}
 
 	// Process each match
@@ -134,6 +139,13 @@ func discoverFilesWithDoublestar(rootPath string, options DirectoryDiscoveryOpti
 			continue
 		}
 
+		// Enforce the max files limit before adding. Hitting an eligible file once
+		// the cap is full means the dataset is being truncated: flag it and stop.
+		if options.MaxFiles > 0 && len(files) >= options.MaxFiles {
+			truncated = true
+			break
+		}
+
 		files = append(files, match)
 		totalSize += info.Size()
 
@@ -146,14 +158,9 @@ func discoverFilesWithDoublestar(rootPath string, options DirectoryDiscoveryOpti
 				TotalSize:   totalSize,
 			})
 		}
-
-		// Check max files limit
-		if options.MaxFiles > 0 && len(files) >= options.MaxFiles {
-			break
-		}
 	}
 
-	return files, totalSize, nil
+	return files, totalSize, truncated, nil
 }
 
 // GetDirectoryHeader reads headers from all files and returns unified union header

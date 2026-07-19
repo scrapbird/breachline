@@ -76,7 +76,7 @@ Read-only tools (answered on the backend):
 Action tools (performed by the visible window):
 
 - `open_file` `{path, jpath?, noHeaderRow?, ingestTimezone?}` - open a single file in a new tab.
-- `open_directory` `{path, filePattern, jpath?, includeSourceColumn?}` - open a directory of files as one merged, time-sorted tab. `filePattern` is a recursive glob such as `**/*.json.gz`.
+- `open_directory` `{path, filePattern, jpath?, includeSourceColumn?}` - open a directory of files as one merged, time-sorted tab. `filePattern` is a recursive glob such as `**/*.json.gz`. If the result has `truncated: true`, more matching files existed than the configured limit allowed, so only `filesLoaded` of them were opened and the dataset is incomplete; the caller should warn the user to raise the directory file limit in Settings (0 = unlimited) or narrow `filePattern`.
 - `apply_query` `{tabId, query}` - apply a query to a tab (updates the search bar, grid, and histogram).
 - `set_active_tab` `{tabId}`, `close_tab` `{tabId}` - tab navigation.
 - `open_workspace` `{path}`, `close_workspace`, `add_file_to_workspace` `{path, ...}` - workspace management (license required).

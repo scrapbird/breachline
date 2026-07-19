@@ -98,7 +98,8 @@ func GetEffectiveSettings() Settings {
 		}
 	}
 	if v, ok := m["max_directory_files"]; ok {
-		if vi, oki := v.(int); oki && vi >= 10 {
+		// 0 means unlimited; any positive value is a cap. Negatives are ignored.
+		if vi, oki := v.(int); oki && vi >= 0 {
 			settings.MaxDirectoryFiles = vi
 		}
 	}

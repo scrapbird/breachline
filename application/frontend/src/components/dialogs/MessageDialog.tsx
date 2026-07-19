@@ -20,7 +20,7 @@ const MessageDialog: React.FC<MessageDialogProps> = ({ show, onClose, title, mes
                 }}>
                     <i className={isError ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check'} />
                 </div>
-                <div style={{ fontSize: 15, lineHeight: 1.6 }}>
+                <div style={{ fontSize: 15, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                     {message}
                 </div>
             </div>

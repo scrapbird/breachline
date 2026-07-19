@@ -76,7 +76,7 @@ func (s *Server) registerTools() {
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "open_directory",
-		Description: "Open a directory of files as one merged, time-sorted tab. filePattern is a glob like **/*.json.gz; jpath locates records in JSON files.",
+		Description: "Open a directory of files as one merged, time-sorted tab. filePattern is a glob like **/*.json.gz; jpath locates records in JSON files. If the result has truncated=true, more matching files existed than the configured limit and the dataset is incomplete: warn the user to raise the directory file limit in Settings (0 = unlimited) or narrow filePattern.",
 	}, s.handleOpenDirectory)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
@@ -253,6 +253,13 @@ type OpenResult struct {
 	TimestampColumn string   `json:"timestampColumn"`
 	RowCount        int64    `json:"rowCount"`
 	FileCount       int      `json:"fileCount,omitempty"`
+	// Truncated is true when the directory held more matching files than the
+	// configured limit, so only FilesLoaded of them were opened and this dataset
+	// is INCOMPLETE. When true, do not treat results as exhaustive: tell the user
+	// to raise "Maximum files when opening directory" in Settings (0 = unlimited)
+	// and reopen, or narrow the filePattern to fit within the limit.
+	Truncated   bool `json:"truncated,omitempty" jsonschema:"true if more matching files existed than the limit allowed, so the loaded dataset is incomplete"`
+	FilesLoaded int  `json:"filesLoaded,omitempty" jsonschema:"number of files actually loaded when truncated"`
 }
 
 type okOut struct {

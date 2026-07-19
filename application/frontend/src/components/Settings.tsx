@@ -205,24 +205,26 @@ const Settings: React.FC<SettingsProps> = ({
                             <div style={{ fontSize: 13, opacity: 0.85, textAlign: 'left' }}>Maximum files when opening directory</div>
                             <input
                                 type="number"
-                                min="10"
+                                min="0"
                                 max="10000"
                                 step="100"
                                 value={maxDirFilesInput}
                                 onChange={(e) => {
                                     const value = e.target.value;
                                     setMaxDirFilesInput(value);
-                                    
-                                    // Only update settings if it's a valid number
+
+                                    // Only update settings if it's a valid number.
+                                    // 0 means unlimited; any positive number is a cap.
                                     const numValue = parseInt(value);
-                                    if (!isNaN(numValue) && numValue >= 10) {
+                                    if (!isNaN(numValue) && numValue >= 0) {
                                         onSettingsChange(s => ({ ...s, max_directory_files: numValue }));
                                     }
                                 }}
                                 onBlur={(e) => {
-                                    // Apply fallback when field loses focus if invalid
+                                    // Apply fallback when field loses focus only if the value is
+                                    // invalid (empty or negative). 0 means unlimited.
                                     const value = parseInt(e.target.value);
-                                    if (isNaN(value) || value < 10) {
+                                    if (isNaN(value) || value < 0) {
                                         setMaxDirFilesInput('500');
                                         onSettingsChange(s => ({ ...s, max_directory_files: 500 }));
                                     }
@@ -238,7 +240,7 @@ const Settings: React.FC<SettingsProps> = ({
                                 }}
                             />
                             <div style={{ fontSize: 11, opacity: 0.65, textAlign: 'left' }}>
-                                Maximum number of files to load when opening a directory as a virtual file.
+                                Maximum number of files to load when opening a directory as a virtual file. Set to 0 for unlimited (loads every matching file; may be slow and memory-heavy for very large directories).
                             </div>
                         </div>
                     </div>

@@ -85,10 +85,7 @@ func (a *App) getDirectoryReaderForTab(tab *FileTab) (*fileloader.DirectoryReade
 
 	// Get max files setting
 	currentSettings := settings.GetEffectiveSettings()
-	maxFiles := currentSettings.MaxDirectoryFiles
-	if maxFiles <= 0 {
-		maxFiles = 500 // Default
-	}
+	maxFiles := currentSettings.DirectoryFileLimit()
 
 	// Discover files
 	info, err := fileloader.DiscoverFiles(tab.FilePath, fileloader.DirectoryDiscoveryOptions{

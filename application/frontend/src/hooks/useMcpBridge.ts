@@ -88,7 +88,15 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
       await deps.openFile(p.path, options);
       const tab = await findBackendTab(p.path);
       if (!tab) throw new Error('the directory could not be opened (no matching files?)');
-      return { tabId: tab.id, fileName: tab.fileName, columns: tab.headers || [] };
+      // Surface truncation so the agent knows the dataset is incomplete and can
+      // tell the user to raise the file limit (0 = unlimited) or narrow the pattern.
+      return {
+        tabId: tab.id,
+        fileName: tab.fileName,
+        columns: tab.headers || [],
+        truncated: !!tab.truncated,
+        filesLoaded: tab.filesLoaded || 0,
+      };
     }
     case 'apply_query': {
       const st = tabState.getTabState(p.tabId);

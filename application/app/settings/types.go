@@ -50,6 +50,17 @@ type Settings struct {
 	MCPServerToken   string `yaml:"mcp_server_token,omitempty" json:"mcp_server_token,omitempty"`
 }
 
+// DirectoryFileLimit returns the effective cap to pass to the directory loader
+// when opening a directory: 0 means unlimited (load every matching file), a
+// positive value caps discovery to that many files. A negative (invalid) value
+// falls back to the built-in default.
+func (s Settings) DirectoryFileLimit() int {
+	if s.MaxDirectoryFiles < 0 {
+		return defaultSettings.MaxDirectoryFiles
+	}
+	return s.MaxDirectoryFiles
+}
+
 // CacheManager interface defines methods that SettingsService needs for cache management
 // This breaks the circular dependency between app and settings packages
 type CacheManager interface {

@@ -135,7 +135,8 @@ func (s *SettingsService) GetSettings() (Settings, error) {
 		}
 	}
 	if v, ok := m["max_directory_files"]; ok {
-		if vi, oki := v.(int); oki && vi >= 10 {
+		// 0 means unlimited; any positive value is a cap. Negatives are ignored.
+		if vi, oki := v.(int); oki && vi >= 0 {
 			settings.MaxDirectoryFiles = vi
 		}
 	}
@@ -306,12 +307,11 @@ func (s *SettingsService) SaveSettings(in Settings) error {
 		data["window_height"] = windowHeight
 	}
 
-	// Save max directory files setting if different from default
+	// Save max directory files setting if different from default. 0 means
+	// unlimited; any positive value is a cap. Negatives are invalid and left
+	// unpersisted (falling back to the default on load).
 	maxDirFiles := in.MaxDirectoryFiles
-	if maxDirFiles == 0 {
-		maxDirFiles = old.MaxDirectoryFiles
-	}
-	if maxDirFiles != defaultSettings.MaxDirectoryFiles && maxDirFiles >= 10 {
+	if maxDirFiles != defaultSettings.MaxDirectoryFiles && maxDirFiles >= 0 {
 		data["max_directory_files"] = maxDirFiles
 	}
 
@@ -440,8 +440,8 @@ func (s *SettingsService) ClearSyncTokens() error {
 		data["instance_id"] = instanceID
 	}
 
-	// Preserve max directory files setting
-	if settings.MaxDirectoryFiles != defaultSettings.MaxDirectoryFiles && settings.MaxDirectoryFiles >= 10 {
+	// Preserve max directory files setting (0 = unlimited; any positive value is a cap)
+	if settings.MaxDirectoryFiles != defaultSettings.MaxDirectoryFiles && settings.MaxDirectoryFiles >= 0 {
 		data["max_directory_files"] = settings.MaxDirectoryFiles
 	}
 

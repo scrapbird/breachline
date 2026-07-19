@@ -49,4 +49,9 @@ type TabInfo struct {
 	IngestTimezoneOverride string   `json:"ingestTimezoneOverride,omitempty"`
 	DecompressionWarning   string   `json:"decompressionWarning,omitempty"`
 	DetectedFileType       string   `json:"detectedFileType,omitempty"` // "csv", "json", "xlsx" - detected from actual file loader used
+	// Truncated is true when the directory held more matching files than the
+	// configured limit, so only FilesLoaded of them were opened. The frontend
+	// warns the user that the dataset is incomplete.
+	Truncated   bool `json:"truncated,omitempty"`
+	FilesLoaded int  `json:"filesLoaded,omitempty"`
 }

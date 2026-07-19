@@ -182,6 +182,18 @@ export function usePluginHandlers({
                 return;
             }
 
+            // Warn (with a dialog the user must acknowledge) if the directory held more
+            // matching files than the limit, so the loaded dataset is incomplete.
+            if (fileOptions.isDirectory && (response as any).truncated) {
+                const loaded = (response as any).filesLoaded || 0;
+                addLog('warn', `Directory truncated: only the first ${loaded} files were loaded.`);
+                showMessageDialogAction(
+                    'Not all files were loaded',
+                    `This directory contains more files than the current limit allows, so only the first ${loaded} files were loaded. This dataset is incomplete and events from the remaining files are missing.\n\nTo load everything, increase "Maximum files when opening directory" in Settings (or set it to 0 for unlimited), then reopen the directory.`,
+                    true
+                );
+            }
+
             const tabId = response.id;
 
             // Create new tab with all options

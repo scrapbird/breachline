@@ -314,6 +314,8 @@ func (a *App) GetTabs() []TabInfo {
 			FilePath:               tab.FilePath,
 			FileHash:               tab.FileHash,
 			IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
+			Truncated:              tab.Truncated,
+			FilesLoaded:            tab.FilesLoaded,
 		})
 	}
 	return tabs
@@ -1001,10 +1003,7 @@ func (a *App) CheckDirectoryHashMismatch(dirPath string, filePattern string, sto
 
 	// Get max files setting
 	currentSettings := settings.GetEffectiveSettings()
-	maxFiles := currentSettings.MaxDirectoryFiles
-	if maxFiles <= 0 {
-		maxFiles = 500
-	}
+	maxFiles := currentSettings.DirectoryFileLimit()
 
 	// Use wildcard pattern if none specified, to avoid "pattern required" error
 	pattern := filePattern
@@ -1047,10 +1046,7 @@ func (a *App) CheckDirectoryHashMismatch(dirPath string, filePattern string, sto
 func (a *App) PreviewDirectory(dirPath string, pattern string, jpath string) (*fileloader.DirectoryPreviewResult, error) {
 	// Get max files setting
 	currentSettings := settings.GetEffectiveSettings()
-	maxFiles := currentSettings.MaxDirectoryFiles
-	if maxFiles <= 0 {
-		maxFiles = 500
-	}
+	maxFiles := currentSettings.DirectoryFileLimit()
 
 	return fileloader.PreviewDirectory(dirPath, pattern, jpath, maxFiles)
 }
@@ -1068,10 +1064,7 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 
 	// Get max files setting
 	currentSettings := settings.GetEffectiveSettings()
-	maxFiles := currentSettings.MaxDirectoryFiles
-	if maxFiles <= 0 {
-		maxFiles = 500
-	}
+	maxFiles := currentSettings.DirectoryFileLimit()
 
 	// Discover files with progress reporting
 	info, err := fileloader.DiscoverFiles(dirPath, fileloader.DirectoryDiscoveryOptions{
@@ -1094,9 +1087,11 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 		return nil, fmt.Errorf("no compatible files found in directory")
 	}
 
-	// Warn if max files limit was reached
-	if len(info.Files) >= maxFiles {
-		a.Log("warn", fmt.Sprintf("Directory contains more files than limit (%d). Loading first %d files.", maxFiles, maxFiles))
+	// Warn if the directory held more matching files than the limit allowed, so
+	// the dataset loaded is only a subset. This is surfaced to the user via the
+	// Truncated flag on TabInfo below.
+	if info.Truncated {
+		a.Log("warn", fmt.Sprintf("Directory contains more files than the limit (%d). Loaded the first %d files; the rest were skipped.", maxFiles, len(info.Files)))
 	}
 
 	// Calculate directory hash for caching
@@ -1109,11 +1104,13 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 	tabID := fmt.Sprintf("tab-%d", atomic.AddInt64(&a.nextTabID, 1))
 
 	tab := &FileTab{
-		ID:       tabID,
-		FilePath: dirPath,
-		FileName: fmt.Sprintf("%s/ (%d files)", filepath.Base(dirPath), len(info.Files)),
-		FileHash: dirHash,
-		Options:  opts,
+		ID:          tabID,
+		FilePath:    dirPath,
+		FileName:    fmt.Sprintf("%s/ (%d files)", filepath.Base(dirPath), len(info.Files)),
+		FileHash:    dirHash,
+		Options:     opts,
+		Truncated:   info.Truncated,
+		FilesLoaded: len(info.Files),
 	}
 	tab.SortCond = sync.NewCond(&tab.CacheMu)
 
@@ -1163,5 +1160,7 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 		Headers:                headers,
 		IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
 		DetectedFileType:       detectedFileType,
+		Truncated:              info.Truncated,
+		FilesLoaded:            len(info.Files),
 	}, nil
 }

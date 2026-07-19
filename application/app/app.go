@@ -676,10 +676,7 @@ func (a *App) CheckDirectoryPluginRequirements(dirPath string, filePattern strin
 
 	// Get max files setting to limit scan
 	currentSettings := settings.GetEffectiveSettings()
-	maxFiles := currentSettings.MaxDirectoryFiles
-	if maxFiles <= 0 {
-		maxFiles = 500
-	}
+	maxFiles := currentSettings.DirectoryFileLimit()
 
 	// Discover files in the directory
 	// We use the same discovery logic as when actually opening the directory
@@ -856,10 +853,7 @@ func (a *App) AddFileToWorkspace(filePath string, opts interfaces.FileOptions) e
 
 		// Get max files setting
 		currentSettings := settings.GetEffectiveSettings()
-		maxFiles := currentSettings.MaxDirectoryFiles
-		if maxFiles <= 0 {
-			maxFiles = 500
-		}
+		maxFiles := currentSettings.DirectoryFileLimit()
 
 		// Use wildcard pattern if none specified
 		pattern := opts.FilePattern
