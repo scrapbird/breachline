@@ -20,6 +20,14 @@ type DirectoryInfo struct {
 	TotalFiles int      // Total files found
 	TotalSize  int64    // Total size in bytes
 	Truncated  bool     // True if more matching files existed than MaxFiles allowed (some were skipped)
+
+	// Headers caches each member file's normalized per-file header, keyed by the
+	// absolute file path, so a header is parsed at most once per load and reused
+	// for both the union schema and per-row mapping. It is populated lazily by
+	// ensureFileHeaders. Files whose header cannot be read are absent from the map
+	// (skipped). The synthetic __source_file__ column is never stored here; it is
+	// only appended to the union header.
+	Headers map[string][]string
 }
 
 // DirectoryDiscoveryOptions controls file discovery behavior
@@ -183,16 +191,45 @@ func discoverFilesWithDoublestar(rootPath string, options DirectoryDiscoveryOpti
 	return files, totalSize, truncated, nil
 }
 
-// GetDirectoryHeader reads headers from all files and returns unified union header
-// Columns are ordered by first appearance across files
-func GetDirectoryHeader(info *DirectoryInfo, options FileOptions) ([]string, error) {
-	seen := make(map[string]bool)
-	var unionHeader []string
+// ensureFileHeaders reads each member file's header exactly once and caches the
+// normalized per-file header on info, keyed by absolute file path. Files whose
+// header cannot be read are skipped (left absent from the map), preserving the
+// tolerant behavior of the union build and row iteration. Once populated the
+// cache is reused, so callers within a single load (union build and row mapping)
+// share one read per file. The synthetic source column is never stored here.
+func ensureFileHeaders(info *DirectoryInfo, options FileOptions) {
+	if info.Headers != nil {
+		return
+	}
 
+	headers := make(map[string][]string, len(info.Files))
 	for _, filePath := range info.Files {
 		header, err := readFileHeader(filePath, options)
 		if err != nil {
-			// Log warning, continue with other files
+			// Skip files whose header can't be read; continue with the rest.
+			continue
+		}
+		headers[filePath] = header
+	}
+	info.Headers = headers
+}
+
+// GetDirectoryHeader reads headers from all files and returns unified union header
+// Columns are ordered by first appearance across files
+func GetDirectoryHeader(info *DirectoryInfo, options FileOptions) ([]string, error) {
+	// Populate the per-file header cache once, then build the union from it so
+	// each member file is parsed a single time.
+	ensureFileHeaders(info, options)
+
+	seen := make(map[string]bool)
+	var unionHeader []string
+
+	// Iterate files in discovery order so the union is ordered by first
+	// appearance and column positions stay stable.
+	for _, filePath := range info.Files {
+		header, ok := info.Headers[filePath]
+		if !ok {
+			// Unreadable/skipped file.
 			continue
 		}
 
@@ -295,14 +332,18 @@ func (dr *DirectoryReader) Read() ([]string, error) {
 			dr.currentFile = file
 			dr.currentPath = filePath
 
-			// Read and cache header for current file
-			dr.currentHeader, err = readFileHeader(filePath, dr.options)
-			if err != nil {
+			// Reuse the per-file header cached during the union build instead of
+			// re-parsing it here. A file absent from the cache is one whose header
+			// could not be read, so skip it (matching the union-build behavior).
+			header, ok := dr.info.Headers[filePath]
+			if !ok {
 				dr.closeCurrentFile()
 				continue
 			}
+			dr.currentHeader = header
 
-			// Skip header row if present (we read it separately for mapping)
+			// Skip the header row on the data stream if present. This is a stream
+			// advance past the already-consumed header row, not a header re-parse.
 			if !dr.options.NoHeaderRow {
 				_, err := reader.Read()
 				if err != nil {

@@ -145,17 +145,6 @@ func (r *FileReader) loadRows(needsSort bool, timeIdx int, desc bool) (*interfac
 
 // loadRowsFromDirectory loads rows from all files in a directory
 func (r *FileReader) loadRowsFromDirectory(needsSort bool, timeIdx int, desc bool) (*interfaces.StageResult, error) {
-	// Get header first
-	header, err := r.Header()
-	if err != nil {
-		return nil, err
-	}
-
-	// Detect timestamp field
-	if timeIdx < 0 {
-		timeIdx = timestamps.DetectTimestampIndex(header)
-	}
-
 	// Discover files in the directory. Apply the same "maximum files when opening a
 	// directory" limit the open path used, so the rows we load match the files that
 	// were discovered, counted, and hashed when the tab was opened (0 = unlimited).
@@ -167,7 +156,11 @@ func (r *FileReader) loadRowsFromDirectory(needsSort bool, timeIdx int, desc boo
 		return nil, fmt.Errorf("failed to discover files: %w", err)
 	}
 
-	// Create directory reader with options (ensure ingest timezone is set)
+	// Create directory reader with options (ensure ingest timezone is set).
+	// NewDirectoryReader parses each member's header exactly once to build the
+	// union schema and caches the per-file headers for row mapping, so we take the
+	// union header from the reader instead of re-discovering and re-reading via
+	// r.Header().
 	dirOptions := r.options
 	if dirOptions.IngestTimezoneOverride == "" && r.ingestTimezone != nil {
 		dirOptions.IngestTimezoneOverride = r.ingestTimezone.String()
@@ -177,6 +170,19 @@ func (r *FileReader) loadRowsFromDirectory(needsSort bool, timeIdx int, desc boo
 		return nil, fmt.Errorf("failed to create directory reader: %w", err)
 	}
 	defer dirReader.Close()
+
+	// Union header from the reader; cache it on the FileReader for later Header() calls.
+	header := dirReader.Header()
+	r.mutex.Lock()
+	if r.header == nil {
+		r.header = header
+	}
+	r.mutex.Unlock()
+
+	// Detect timestamp field
+	if timeIdx < 0 {
+		timeIdx = timestamps.DetectTimestampIndex(header)
+	}
 
 	// Read all rows with pre-parsed timestamps
 	var rows []*interfaces.Row
