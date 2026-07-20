@@ -30,7 +30,7 @@ The whole feature is one self-contained Go package, `app/mcpserver`, plus a thin
 AI client --tools/call get_rows--> mcpserver --AppBridge.GetRows--> App --> rows back to AI
 ```
 
-`AppBridge` (defined in `app/mcpserver/bridge.go`, implemented by `app/mcp_bridge.go`) exposes only read operations: list tabs, get schema, get a page of query results, get a histogram, list workspace files, get annotations. `mcpserver` never imports the `app` package, so there is no import cycle; `main.go` wires the adapter in.
+`AppBridge` (defined in `app/mcpserver/bridge.go`, implemented by `app/mcp_bridge.go`) exposes only read operations: list tabs, get schema, get a page of query results, get a histogram, in-file search, validate a timestamp column, list workspace files, and get annotations (per-row, whole-file, or a presence check). `mcpserver` never imports the `app` package, so there is no import cycle; `main.go` wires the adapter in. One read, `get_console_log`, is the exception: the log buffer lives in the window, so it is dispatched like an action rather than answered on the backend.
 
 **Actions** (change the window) are dispatched to the frontend and awaited:
 
@@ -70,8 +70,13 @@ Read-only tools (answered on the backend):
 - `get_schema` `{tabId}` - a tab's columns, detected timestamp column, and row count.
 - `get_rows` `{tabId, query?, offset?, limit?}` - run a query against a tab and return a page of matching rows as structured data.
 - `get_histogram` `{tabId, query?, bucketSeconds?}` - time-bucketed event counts for a tab.
-- `list_workspace_files` - files tracked by the open workspace (license required).
+- `search_in_file` `{tabId, term, isRegex?, query?, page?}` - free-text or regex search over a tab's current query results, returning matching cells with context snippets. Use this for substring/regex matching; use `get_rows`/`apply_query` for the structured query language.
+- `validate_timestamp_column` `{tabId, columnName}` - check whether a column parses as timestamps, without changing anything. Call before `set_timestamp_column`.
+- `list_workspace_files` - files tracked by the open workspace, each with `fileHash` and `options` (license required). Pass those two back to `remove_file_from_workspace` / `update_file_description` to target an entry.
 - `get_annotations` `{tabId, rowIndices}` - annotations on given rows (license required).
+- `get_file_annotations` `{tabId}` - every annotation on a tab's file, each with its display index under the current query (`-1` if not visible). License required.
+- `has_annotations` `{tabId}` - whether a tab's file has any annotations at all (a cheap presence check). License required.
+- `get_console_log` `{limit?, level?}` - recent entries from the app console (backend and UI events), for diagnosing why an earlier action failed. `level` is the minimum of `info|warn|error`. Answered by the window (it holds the log buffer), so it counts as an action path internally.
 
 Action tools (performed by the visible window):
 
@@ -79,7 +84,12 @@ Action tools (performed by the visible window):
 - `open_directory` `{path, filePattern, jpath?, includeSourceColumn?}` - open a directory of files as one merged, time-sorted tab. `filePattern` is a recursive glob such as `**/*.json.gz`. If the result has `truncated: true`, more matching files existed than the configured limit allowed, so only `filesLoaded` of them were opened and the dataset is incomplete; the caller should warn the user to raise the directory file limit in Settings (0 = unlimited) or narrow `filePattern`.
 - `apply_query` `{tabId, query}` - apply a query to a tab (updates the search bar, grid, and histogram).
 - `set_active_tab` `{tabId}`, `close_tab` `{tabId}` - tab navigation.
-- `open_workspace` `{path}`, `close_workspace`, `add_file_to_workspace` `{path, ...}` - workspace management (license required).
+- `set_timestamp_column` `{tabId, columnName}` - change which column a tab uses as its timestamp, re-sorting and refreshing the view. Switches the window to that tab. Validate with `validate_timestamp_column` first.
+- `open_workspace` `{path}`, `close_workspace`, `add_file_to_workspace` `{path, ...}` - open/close a workspace and add a file (license required).
+- `create_local_workspace` `{path}` - create a new local `.breachline` workspace at `path` and open it (license required).
+- `create_remote_workspace` `{name}` - create a synced remote workspace and open it (license required; the user must be signed in to sync).
+- `remove_file_from_workspace` `{fileHash, options}` - remove a file from the open workspace, identified by the `fileHash` + `options` from `list_workspace_files` (license required).
+- `update_file_description` `{fileHash, options, description}` - set a workspace file's description, identified the same way (license required).
 - `annotate_rows` `{tabId, rowIndices, note, color?}`, `delete_annotations` `{tabId, rowIndices}` - row annotations (license required).
 - `export_workspace_timeline` `{outputPath?}` - export the annotated timeline (license required).
 

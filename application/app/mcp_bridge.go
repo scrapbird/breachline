@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"breachline/app/histogram"
+	"breachline/app/interfaces"
 	"breachline/app/mcpserver"
 )
 
@@ -185,11 +186,26 @@ func (b *MCPAppBridge) ListWorkspaceFiles() ([]mcpserver.WorkspaceFileSummary, e
 		}
 		out = append(out, mcpserver.WorkspaceFileSummary{
 			FilePath:        f.FilePath,
+			FileHash:        f.FileHash,
 			Description:     f.Description,
 			AnnotationCount: f.AnnotationCount,
+			Options:         fileOptionsToMCP(f.Options),
 		})
 	}
 	return out, nil
+}
+
+// fileOptionsToMCP maps the app's FileOptions to the identity-only subset the MCP
+// server round-trips through list_workspace_files and the remove/update tools.
+func fileOptionsToMCP(o interfaces.FileOptions) mcpserver.WorkspaceFileOptions {
+	return mcpserver.WorkspaceFileOptions{
+		Jpath:                  o.JPath,
+		NoHeaderRow:            o.NoHeaderRow,
+		IngestTimezoneOverride: o.IngestTimezoneOverride,
+		IsDirectory:            o.IsDirectory,
+		FilePattern:            o.FilePattern,
+		IncludeSourceColumn:    o.IncludeSourceColumn,
+	}
 }
 
 func (b *MCPAppBridge) GetAnnotations(tabID string, rowIndices []int) ([]mcpserver.AnnotationInfo, error) {
@@ -209,4 +225,79 @@ func (b *MCPAppBridge) GetAnnotations(tabID string, rowIndices []int) ([]mcpserv
 		out = append(out, mcpserver.AnnotationInfo{RowIndex: idx, Note: ann.Note, Color: ann.Color})
 	}
 	return out, nil
+}
+
+func (b *MCPAppBridge) GetFileAnnotations(tabID string) ([]mcpserver.FileAnnotation, error) {
+	tab := b.app.GetTab(tabID)
+	if tab == nil {
+		return nil, fmt.Errorf("no open tab with id %q", tabID)
+	}
+	anns, err := b.app.GetFileAnnotations(tab.FileHash, tab.Options)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]mcpserver.FileAnnotation, 0, len(anns))
+	for _, a := range anns {
+		if a == nil {
+			continue
+		}
+		out = append(out, mcpserver.FileAnnotation{
+			OriginalRowIndex: a.OriginalRowIndex,
+			DisplayRowIndex:  a.DisplayRowIndex,
+			Note:             a.Note,
+			Color:            a.Color,
+		})
+	}
+	return out, nil
+}
+
+func (b *MCPAppBridge) HasAnnotationsForFile(tabID string) (bool, error) {
+	tab := b.app.GetTab(tabID)
+	if tab == nil {
+		return false, fmt.Errorf("no open tab with id %q", tabID)
+	}
+	return b.app.HasAnnotationsForFile(tab.FileHash, tab.Options), nil
+}
+
+func (b *MCPAppBridge) SearchInFile(tabID, term string, isRegex bool, query string, page int) (*mcpserver.SearchResults, error) {
+	if b.app.GetTab(tabID) == nil {
+		return nil, fmt.Errorf("no open tab with id %q", tabID)
+	}
+	if page < 0 {
+		page = 0
+	}
+	resp, err := b.app.SearchInFile(tabID, term, isRegex, page, query)
+	if err != nil {
+		return nil, err
+	}
+	matches := make([]mcpserver.SearchMatch, 0, len(resp.Results))
+	for _, r := range resp.Results {
+		matches = append(matches, mcpserver.SearchMatch{
+			RowIndex:   r.RowIndex,
+			ColumnName: r.ColumnName,
+			Snippet:    r.Snippet,
+			MatchStart: r.MatchStart,
+			MatchEnd:   r.MatchEnd,
+		})
+	}
+	return &mcpserver.SearchResults{
+		Matches:      matches,
+		TotalMatches: resp.TotalCount,
+		Returned:     len(matches),
+		// The engine returns one SearchPageSize page at a time; more exist when the
+		// total exceeds what this page covers.
+		Truncated: resp.TotalCount > (page+1)*resp.PageSize,
+	}, nil
+}
+
+func (b *MCPAppBridge) ValidateTimestampColumn(tabID, columnName string) (*mcpserver.TimestampValidation, error) {
+	tab := b.app.GetTab(tabID)
+	if tab == nil {
+		return nil, fmt.Errorf("no open tab with id %q", tabID)
+	}
+	res, err := b.app.validateTimestampColumnForTab(tab, columnName)
+	if err != nil {
+		return nil, err
+	}
+	return &mcpserver.TimestampValidation{Valid: res.Valid, ErrorMessage: res.ErrorMessage}, nil
 }

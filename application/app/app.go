@@ -1083,6 +1083,16 @@ func (a *App) GetFileAnnotations(fileHash string, opts interfaces.FileOptions) (
 	return annotations, nil
 }
 
+// HasAnnotationsForFile reports whether the given file (by hash + options) has any
+// annotations in the open workspace. Cheaper than GetFileAnnotations when only the
+// presence of annotations matters.
+func (a *App) HasAnnotationsForFile(fileHash string, opts interfaces.FileOptions) bool {
+	if a.workspaceService == nil {
+		return false
+	}
+	return a.workspaceService.HasAnnotationsForFile(fileHash, opts)
+}
+
 // OpenMultipleFilesDialog opens a file dialog allowing multiple file selection
 func (a *App) OpenMultipleFilesDialog() ([]string, error) {
 	filePaths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{

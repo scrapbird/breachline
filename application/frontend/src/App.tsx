@@ -1912,9 +1912,13 @@ function App() {
         );
     };
 
-    const handleSetTimestampColumn = async (columnName: string) => {
-        const currentTab = tabState.currentTab;
-        if (!currentTab) return;
+    const handleSetTimestampColumn = async (columnName: string): Promise<{ success: boolean; message?: string }> => {
+        // Resolve via getCurrentTabState (ref-backed) rather than the currentTab
+        // snapshot: the MCP path switches tabs immediately before calling this, and
+        // switchTab updates the active-tab ref synchronously while the snapshot lags
+        // a render. The human path is unaffected (the active tab is already current).
+        const currentTab = tabState.getCurrentTabState();
+        if (!currentTab) return { success: false, message: 'No active tab' };
 
         // Show loading dialog immediately for better UX
         setIsChangingTimestamp(true);
@@ -1924,22 +1928,24 @@ function App() {
             const validation = await AppAPI.ValidateTimestampColumn(columnName);
 
             if (!validation.valid) {
-                addLog('error', validation.errorMessage || 'Failed to validate timestamp column');
-                setErrorDialogMessage(validation.errorMessage || 'Failed to validate timestamp column');
+                const message = validation.errorMessage || 'Failed to validate timestamp column';
+                addLog('error', message);
+                setErrorDialogMessage(message);
                 setShowErrorDialog(true);
                 setIsChangingTimestamp(false);
-                return;
+                return { success: false, message };
             }
 
             // Set the timestamp column (this also expires cache)
             const result = await AppAPI.SetTimestampColumn(columnName);
 
             if (!result.success) {
-                addLog('error', result.message || 'Failed to set timestamp column');
-                setErrorDialogMessage(result.message || 'Failed to set timestamp column');
+                const message = result.message || 'Failed to set timestamp column';
+                addLog('error', message);
+                setErrorDialogMessage(message);
                 setShowErrorDialog(true);
                 setIsChangingTimestamp(false);
-                return;
+                return { success: false, message };
             }
 
             // Update the tab state with new timestamp field FIRST
@@ -1961,12 +1967,14 @@ function App() {
 
             addLog('info', `Timestamp column set to '${columnName}'`);
             setIsChangingTimestamp(false);
+            return { success: true };
         } catch (err: any) {
             const errorMessage = 'Failed to set timestamp column: ' + (err?.message || String(err));
             addLog('error', errorMessage);
             setErrorDialogMessage(errorMessage);
             setShowErrorDialog(true);
             setIsChangingTimestamp(false);
+            return { success: false, message: errorMessage };
         }
     };
 
@@ -2137,6 +2145,8 @@ function App() {
         setIsWorkspaceOpen,
         setWorkspaceKey,
         addLog,
+        setTimestampColumn: handleSetTimestampColumn,
+        getConsoleLogs: () => logs,
     });
 
     // Monitor license dialog state and trigger login when user closes the re-auth dialog

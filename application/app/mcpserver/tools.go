@@ -67,6 +67,31 @@ func (s *Server) registerTools() {
 		Description: "Return any annotations on the given rows of a tab (requires a license).",
 	}, s.handleGetAnnotations)
 
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "get_file_annotations",
+		Description: "Return every annotation on a tab's file, with each row's display index under the current query (-1 if not visible). Requires a license.",
+	}, s.handleGetFileAnnotations)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "has_annotations",
+		Description: "Report whether a tab's file has any annotations at all (a cheap check before fetching them). Requires a license.",
+	}, s.handleHasAnnotations)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "search_in_file",
+		Description: "Search a tab's current query results for a literal term or regex and return matching cells with context snippets. Use this for free-text/regex matching; use get_rows/apply_query for the structured query language.",
+	}, s.handleSearchInFile)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "validate_timestamp_column",
+		Description: "Check whether a column on a tab parses as timestamps, without changing anything. Call before set_timestamp_column.",
+	}, s.handleValidateTimestampColumn)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "get_console_log",
+		Description: "Return recent entries from the app's console log (backend and UI events). Useful for diagnosing why a previous action failed.",
+	}, s.handleGetConsoleLog)
+
 	// --- State-changing tools (performed by the visible app window) ---
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
@@ -123,6 +148,31 @@ func (s *Server) registerTools() {
 		Name:        "export_workspace_timeline",
 		Description: "Export the annotated rows across the workspace to a combined timeline file (requires a license).",
 	}, s.handleExportTimeline)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "create_local_workspace",
+		Description: "Create a new local .breachline workspace at the given path and open it (requires a license).",
+	}, s.handleCreateLocalWorkspace)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "create_remote_workspace",
+		Description: "Create a new synced remote workspace with the given name and open it (requires a license and that the user is signed in to sync).",
+	}, s.handleCreateRemoteWorkspace)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "remove_file_from_workspace",
+		Description: "Remove a file from the open workspace. Identify it with the fileHash and options from list_workspace_files. Requires a license.",
+	}, s.handleRemoveFileFromWorkspace)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "update_file_description",
+		Description: "Set the description of a file in the open workspace. Identify it with the fileHash and options from list_workspace_files. Requires a license.",
+	}, s.handleUpdateFileDescription)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "set_timestamp_column",
+		Description: "Change which column a tab uses as its timestamp, re-sorting and refreshing the view. Validate with validate_timestamp_column first. This switches the visible window to the tab.",
+	}, s.handleSetTimestampColumn)
 }
 
 // ---------------- Read tool inputs/outputs ----------------
@@ -241,6 +291,89 @@ func (s *Server) handleGetAnnotations(_ context.Context, _ *mcp.CallToolRequest,
 		return nil, getAnnotationsOut{}, err
 	}
 	return nil, getAnnotationsOut{Annotations: anns}, nil
+}
+
+type getFileAnnotationsOut struct {
+	Annotations []FileAnnotation `json:"annotations"`
+}
+
+func (s *Server) handleGetFileAnnotations(_ context.Context, _ *mcp.CallToolRequest, in tabIn) (*mcp.CallToolResult, getFileAnnotationsOut, error) {
+	if !s.bridge.IsLicensed() {
+		return nil, getFileAnnotationsOut{}, licenseError
+	}
+	anns, err := s.bridge.GetFileAnnotations(in.TabID)
+	if err != nil {
+		return nil, getFileAnnotationsOut{}, err
+	}
+	return nil, getFileAnnotationsOut{Annotations: anns}, nil
+}
+
+type hasAnnotationsOut struct {
+	HasAnnotations bool `json:"hasAnnotations"`
+}
+
+func (s *Server) handleHasAnnotations(_ context.Context, _ *mcp.CallToolRequest, in tabIn) (*mcp.CallToolResult, hasAnnotationsOut, error) {
+	if !s.bridge.IsLicensed() {
+		return nil, hasAnnotationsOut{}, licenseError
+	}
+	has, err := s.bridge.HasAnnotationsForFile(in.TabID)
+	if err != nil {
+		return nil, hasAnnotationsOut{}, err
+	}
+	return nil, hasAnnotationsOut{HasAnnotations: has}, nil
+}
+
+type searchInFileIn struct {
+	TabID   string `json:"tabId" jsonschema:"the id of an open tab"`
+	Term    string `json:"term" jsonschema:"the text or regex pattern to search for"`
+	IsRegex bool   `json:"isRegex,omitempty" jsonschema:"treat term as a regular expression (default false)"`
+	Query   string `json:"query,omitempty" jsonschema:"optional query to narrow the rows searched; empty searches all rows in time order"`
+	Page    int    `json:"page,omitempty" jsonschema:"result page to return (0-based, 1000 matches per page)"`
+}
+
+func (s *Server) handleSearchInFile(_ context.Context, _ *mcp.CallToolRequest, in searchInFileIn) (*mcp.CallToolResult, SearchResults, error) {
+	res, err := s.bridge.SearchInFile(in.TabID, in.Term, in.IsRegex, in.Query, in.Page)
+	if err != nil {
+		return nil, SearchResults{}, err
+	}
+	return nil, *res, nil
+}
+
+type validateTimestampColumnIn struct {
+	TabID      string `json:"tabId" jsonschema:"the id of an open tab"`
+	ColumnName string `json:"columnName" jsonschema:"the column to test as a timestamp source"`
+}
+
+func (s *Server) handleValidateTimestampColumn(_ context.Context, _ *mcp.CallToolRequest, in validateTimestampColumnIn) (*mcp.CallToolResult, TimestampValidation, error) {
+	res, err := s.bridge.ValidateTimestampColumn(in.TabID, in.ColumnName)
+	if err != nil {
+		return nil, TimestampValidation{}, err
+	}
+	return nil, *res, nil
+}
+
+type getConsoleLogIn struct {
+	Limit int    `json:"limit,omitempty" jsonschema:"max entries to return, most recent last (default 100)"`
+	Level string `json:"level,omitempty" jsonschema:"minimum level to include: info|warn|error (default info = all)"`
+}
+
+// ConsoleLogEntry is one line from the app console.
+type ConsoleLogEntry struct {
+	Timestamp int64  `json:"ts"`
+	Level     string `json:"level"`
+	Message   string `json:"message"`
+}
+
+type getConsoleLogOut struct {
+	Entries []ConsoleLogEntry `json:"entries"`
+}
+
+func (s *Server) handleGetConsoleLog(ctx context.Context, _ *mcp.CallToolRequest, in getConsoleLogIn) (*mcp.CallToolResult, getConsoleLogOut, error) {
+	var out getConsoleLogOut
+	if err := s.dispatch(ctx, "get_console_log", in, &out); err != nil {
+		return nil, getConsoleLogOut{}, err
+	}
+	return nil, out, nil
 }
 
 // ---------------- State-changing tool inputs/outputs ----------------
@@ -427,6 +560,91 @@ func (s *Server) handleExportTimeline(ctx context.Context, _ *mcp.CallToolReques
 	var out okOut
 	if err := s.dispatch(ctx, "export_workspace_timeline", in, &out); err != nil {
 		return nil, okOut{}, err
+	}
+	return nil, out, nil
+}
+
+type createLocalWorkspaceIn struct {
+	Path string `json:"path" jsonschema:"absolute path for the new .breachline workspace file"`
+}
+
+func (s *Server) handleCreateLocalWorkspace(ctx context.Context, _ *mcp.CallToolRequest, in createLocalWorkspaceIn) (*mcp.CallToolResult, okOut, error) {
+	if !s.bridge.IsLicensed() {
+		return nil, okOut{}, licenseError
+	}
+	var out okOut
+	if err := s.dispatch(ctx, "create_local_workspace", in, &out); err != nil {
+		return nil, okOut{}, err
+	}
+	return nil, out, nil
+}
+
+type createRemoteWorkspaceIn struct {
+	Name string `json:"name" jsonschema:"name for the new remote workspace"`
+}
+
+func (s *Server) handleCreateRemoteWorkspace(ctx context.Context, _ *mcp.CallToolRequest, in createRemoteWorkspaceIn) (*mcp.CallToolResult, okOut, error) {
+	if !s.bridge.IsLicensed() {
+		return nil, okOut{}, licenseError
+	}
+	var out okOut
+	if err := s.dispatch(ctx, "create_remote_workspace", in, &out); err != nil {
+		return nil, okOut{}, err
+	}
+	return nil, out, nil
+}
+
+// workspaceFileRef identifies a workspace entry via the fileHash and options
+// returned by list_workspace_files.
+type workspaceFileRef struct {
+	FileHash string               `json:"fileHash" jsonschema:"the file's hash from list_workspace_files"`
+	Options  WorkspaceFileOptions `json:"options" jsonschema:"the file's options from list_workspace_files (needed to disambiguate variants)"`
+}
+
+func (s *Server) handleRemoveFileFromWorkspace(ctx context.Context, _ *mcp.CallToolRequest, in workspaceFileRef) (*mcp.CallToolResult, okOut, error) {
+	if !s.bridge.IsLicensed() {
+		return nil, okOut{}, licenseError
+	}
+	var out okOut
+	if err := s.dispatch(ctx, "remove_file_from_workspace", in, &out); err != nil {
+		return nil, okOut{}, err
+	}
+	return nil, out, nil
+}
+
+type updateFileDescriptionIn struct {
+	FileHash    string               `json:"fileHash" jsonschema:"the file's hash from list_workspace_files"`
+	Options     WorkspaceFileOptions `json:"options" jsonschema:"the file's options from list_workspace_files"`
+	Description string               `json:"description" jsonschema:"the new description (empty clears it)"`
+}
+
+func (s *Server) handleUpdateFileDescription(ctx context.Context, _ *mcp.CallToolRequest, in updateFileDescriptionIn) (*mcp.CallToolResult, okOut, error) {
+	if !s.bridge.IsLicensed() {
+		return nil, okOut{}, licenseError
+	}
+	var out okOut
+	if err := s.dispatch(ctx, "update_file_description", in, &out); err != nil {
+		return nil, okOut{}, err
+	}
+	return nil, out, nil
+}
+
+type setTimestampColumnIn struct {
+	TabID      string `json:"tabId" jsonschema:"the id of an open tab"`
+	ColumnName string `json:"columnName" jsonschema:"the column to use as the timestamp"`
+}
+
+// setTimestampColumnOut reports whether the change succeeded; on failure Message
+// explains why (e.g. the column does not parse as timestamps).
+type setTimestampColumnOut struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+func (s *Server) handleSetTimestampColumn(ctx context.Context, _ *mcp.CallToolRequest, in setTimestampColumnIn) (*mcp.CallToolResult, setTimestampColumnOut, error) {
+	var out setTimestampColumnOut
+	if err := s.dispatch(ctx, "set_timestamp_column", in, &out); err != nil {
+		return nil, setTimestampColumnOut{}, err
 	}
 	return nil, out, nil
 }

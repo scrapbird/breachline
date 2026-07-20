@@ -6,6 +6,7 @@ import * as WorkspaceManagerAPI from '../../wailsjs/go/app/WorkspaceManager';
 import { FileOptions } from '../types/FileOptions';
 import { showWorkspaceOpened, showWorkspaceClosed } from '../utils/workspaceView';
 import { annotateRowsByHash, deleteRowAnnotationsByHash } from '../utils/annotations';
+import { LogEntry, LogLevel } from './useConsoleLogger';
 
 // A command dispatched by the MCP server for the visible window to perform.
 interface McpCommand {
@@ -26,6 +27,24 @@ export interface McpBridgeDeps {
   setIsWorkspaceOpen: (open: boolean) => void;
   setWorkspaceKey: (updater: (prev: number) => number) => void;
   addLog: (level: 'info' | 'warn' | 'error', message: string) => void;
+  // Change the active tab's timestamp column (same flow as the header menu), so
+  // AI-driven timestamp changes re-sort and refresh the grid + histogram.
+  setTimestampColumn: (columnName: string) => Promise<{ success: boolean; message?: string }>;
+  // Read the current console log buffer (backend + UI events) for get_console_log.
+  getConsoleLogs: () => LogEntry[];
+}
+
+// Map the MCP options payload (from list_workspace_files) to a FileOptions.
+function toFileOptions(o: any): FileOptions {
+  o = o || {};
+  return {
+    jpath: o.jpath || '',
+    noHeaderRow: !!o.noHeaderRow,
+    ingestTimezoneOverride: o.ingestTimezoneOverride || '',
+    isDirectory: !!o.isDirectory,
+    filePattern: o.filePattern || '',
+    includeSourceColumn: !!o.includeSourceColumn,
+  };
 }
 
 // Look up the backend tab for a path (newest match wins) and return its summary.
@@ -170,6 +189,56 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
     case 'export_workspace_timeline': {
       await AppAPI.ExportWorkspaceTimeline();
       return { ok: true };
+    }
+    case 'create_local_workspace': {
+      if (!p.path) throw new Error('path is required');
+      // Create then open, mirroring the human "Create Local Workspace" flow (which
+      // differs only in that it picks the path via a save dialog).
+      await WorkspaceManagerAPI.CreateLocalWorkspace(p.path);
+      await WorkspaceManagerAPI.OpenWorkspace(p.path);
+      showWorkspaceOpened(deps);
+      return { ok: true };
+    }
+    case 'create_remote_workspace': {
+      if (!p.name) throw new Error('name is required');
+      await AppAPI.CreateRemoteWorkspace(p.name);
+      showWorkspaceOpened(deps);
+      return { ok: true };
+    }
+    case 'remove_file_from_workspace': {
+      if (!p.fileHash) throw new Error('fileHash is required');
+      await AppAPI.RemoveFileFromWorkspaceByHash(p.fileHash, toFileOptions(p.options));
+      // Remount the dashboard so the file list and annotation gutters refresh.
+      deps.setWorkspaceKey((prev) => prev + 1);
+      return { ok: true };
+    }
+    case 'update_file_description': {
+      if (!p.fileHash) throw new Error('fileHash is required');
+      await AppAPI.UpdateFileDescription(p.fileHash, toFileOptions(p.options), p.description || '');
+      deps.setWorkspaceKey((prev) => prev + 1);
+      return { ok: true };
+    }
+    case 'set_timestamp_column': {
+      const st = tabState.getTabState(p.tabId);
+      if (!st) throw new Error(`no open tab with id ${p.tabId}`);
+      if (!p.columnName) throw new Error('columnName is required');
+      // The set-timestamp flow operates on the active tab, so focus it first.
+      if (tabState.activeTabId !== p.tabId) {
+        await deps.changeTab(p.tabId);
+      }
+      const res = await deps.setTimestampColumn(p.columnName);
+      return { success: !!res?.success, message: res?.message || '' };
+    }
+    case 'get_console_log': {
+      const order: Record<LogLevel, number> = { info: 0, warn: 1, error: 2 };
+      const min = order[(p.level as LogLevel)] ?? 0;
+      const limit = p.limit && p.limit > 0 ? p.limit : 100;
+      const entries = deps
+        .getConsoleLogs()
+        .filter((e) => (order[e.level] ?? 0) >= min)
+        .slice(-limit)
+        .map((e) => ({ ts: e.ts, level: e.level, message: e.message }));
+      return { entries };
     }
     default:
       throw new Error(`unknown command: ${action}`);

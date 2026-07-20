@@ -31,6 +31,17 @@ type AppBridge interface {
 	ListWorkspaceFiles() ([]WorkspaceFileSummary, error)
 	// GetAnnotations returns any annotations on the given rows of a tab (license required).
 	GetAnnotations(tabID string, rowIndices []int) ([]AnnotationInfo, error)
+	// GetFileAnnotations returns every annotation on a tab's file (license required).
+	GetFileAnnotations(tabID string) ([]FileAnnotation, error)
+	// HasAnnotationsForFile reports whether a tab's file has any annotations (license required).
+	HasAnnotationsForFile(tabID string) (bool, error)
+
+	// SearchInFile runs a literal or regex text search over a tab's current query
+	// results and returns matching cells with context snippets.
+	SearchInFile(tabID, term string, isRegex bool, query string, page int) (*SearchResults, error)
+
+	// ValidateTimestampColumn checks whether a column on a tab parses as timestamps.
+	ValidateTimestampColumn(tabID, columnName string) (*TimestampValidation, error)
 }
 
 // TabSummary is a compact description of an open tab.
@@ -51,13 +62,13 @@ type SchemaInfo struct {
 
 // RowsResult is a page of query results.
 type RowsResult struct {
-	Columns    []string   `json:"columns"`
-	Rows       [][]string `json:"rows"`
-	TotalRows  int64      `json:"totalRows"`
-	Offset     int        `json:"offset"`
-	Returned   int        `json:"returned"`
-	Truncated  bool       `json:"truncated"`
-	AppliedTo  string     `json:"appliedTo"`
+	Columns   []string   `json:"columns"`
+	Rows      [][]string `json:"rows"`
+	TotalRows int64      `json:"totalRows"`
+	Offset    int        `json:"offset"`
+	Returned  int        `json:"returned"`
+	Truncated bool       `json:"truncated"`
+	AppliedTo string     `json:"appliedTo"`
 }
 
 // HistogramBucket is a single time bucket.
@@ -72,11 +83,27 @@ type HistogramResult struct {
 	Buckets       []HistogramBucket `json:"buckets"`
 }
 
-// WorkspaceFileSummary describes one file tracked by a workspace.
+// WorkspaceFileOptions are the file-variant options that, together with the file
+// hash, identify a workspace entry. remove_file_from_workspace and
+// update_file_description echo these back from list_workspace_files so the right
+// entry is targeted (two files can share a hash but differ by options).
+type WorkspaceFileOptions struct {
+	Jpath                  string `json:"jpath,omitempty"`
+	NoHeaderRow            bool   `json:"noHeaderRow,omitempty"`
+	IngestTimezoneOverride string `json:"ingestTimezoneOverride,omitempty"`
+	IsDirectory            bool   `json:"isDirectory,omitempty"`
+	FilePattern            string `json:"filePattern,omitempty"`
+	IncludeSourceColumn    bool   `json:"includeSourceColumn,omitempty"`
+}
+
+// WorkspaceFileSummary describes one file tracked by a workspace. FileHash and
+// Options together identify the entry for remove/update operations.
 type WorkspaceFileSummary struct {
-	FilePath        string `json:"filePath"`
-	Description     string `json:"description,omitempty"`
-	AnnotationCount int    `json:"annotationCount"`
+	FilePath        string               `json:"filePath"`
+	FileHash        string               `json:"fileHash"`
+	Description     string               `json:"description,omitempty"`
+	AnnotationCount int                  `json:"annotationCount"`
+	Options         WorkspaceFileOptions `json:"options"`
 }
 
 // AnnotationInfo describes an annotation on a row.
@@ -84,4 +111,37 @@ type AnnotationInfo struct {
 	RowIndex int    `json:"rowIndex"`
 	Note     string `json:"note"`
 	Color    string `json:"color"`
+}
+
+// FileAnnotation describes one annotation on a file, as returned by get_file_annotations.
+type FileAnnotation struct {
+	OriginalRowIndex int `json:"originalRowIndex"`
+	// DisplayRowIndex is the row's position in the tab's current query view, or -1
+	// if the row is not visible under the active query.
+	DisplayRowIndex int    `json:"displayRowIndex"`
+	Note            string `json:"note"`
+	Color           string `json:"color"`
+}
+
+// SearchMatch is a single cell that matched an in-file search.
+type SearchMatch struct {
+	RowIndex   int    `json:"rowIndex"` // row position in the current query view
+	ColumnName string `json:"columnName"`
+	Snippet    string `json:"snippet"` // cell text around the match
+	MatchStart int    `json:"matchStart"`
+	MatchEnd   int    `json:"matchEnd"`
+}
+
+// SearchResults is a page of in-file search matches.
+type SearchResults struct {
+	Matches      []SearchMatch `json:"matches"`
+	TotalMatches int           `json:"totalMatches"`
+	Returned     int           `json:"returned"`
+	Truncated    bool          `json:"truncated"` // more matches existed than this page returned
+}
+
+// TimestampValidation is the result of checking a column as a timestamp source.
+type TimestampValidation struct {
+	Valid        bool   `json:"valid"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }

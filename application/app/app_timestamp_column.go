@@ -19,7 +19,7 @@ type ValidateTimestampColumnResponse struct {
 }
 
 // ValidateTimestampColumn checks if a column can be used as a timestamp column
-// by attempting to parse the first row's value in that column
+// on the active tab by attempting to parse the first row's value in that column.
 func (a *App) ValidateTimestampColumn(columnName string) (*ValidateTimestampColumnResponse, error) {
 	tab := a.GetActiveTab()
 	if tab == nil {
@@ -28,7 +28,13 @@ func (a *App) ValidateTimestampColumn(columnName string) (*ValidateTimestampColu
 			ErrorMessage: "No active tab",
 		}, nil
 	}
+	return a.validateTimestampColumnForTab(tab, columnName)
+}
 
+// validateTimestampColumnForTab performs the timestamp-column validation against a
+// specific tab. ValidateTimestampColumn (active tab) and the MCP bridge (an
+// explicit tab) both call this, so the logic lives in one place.
+func (a *App) validateTimestampColumnForTab(tab *FileTab, columnName string) (*ValidateTimestampColumnResponse, error) {
 	if tab.FilePath == "" {
 		return &ValidateTimestampColumnResponse{
 			Valid:        false,
