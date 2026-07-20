@@ -8,6 +8,7 @@
 - [ ] 🔴 **Error** Fix TabInfo struct defined in two places
 - [x] 🔴 **Error** Fix timestamp parsing failure when some rows have no timestamp
 - [x] 🔴 **Error** Fix issue where annotations being added when strip or columns operation is in place do not work
+- [ ] 🔴 **Error** Fix tab dedup returning wrong tab when same file open with different options: opening a file with `noHeaderRow` while a normal tab for it exists (or vice versa) can return the existing wrong-options tab instead of opening/matching the correct one. Frontend dedup (useFileOperations), reproduced over MCP `open_file`. Not a backend loading bug (loading is correct on a fresh open)
 - [ ] Cancel query history selection if user keeps typing
 - [x] Dont redraw the histogram when switching back to tabs
 - [x] **Error** Fix annotation cache not invalidating on annotation changes
@@ -88,11 +89,11 @@
 
 ## File open improvements
 
-- [ ] XLSX: add Row/header caching (like JSON) so header + data don't each re-parse the whole workbook; currently header, count, and data each do a full `excelize.OpenFile` + `GetRows`, ~4 full parses per open
-- [ ] Directory: dedupe per-file header reads; union header is read at open, again in `NewDirectoryReader`, and again per-file in `DirectoryReader.Read` (3x/file, and each is a full parse for XLSX/JSON members). Reuse the union header instead of re-reading
+- [x] XLSX: add Row/header caching (like JSON) so header + data don't each re-parse the whole workbook; currently header, count, and data each do a full `excelize.OpenFile` + `GetRows`, ~4 full parses per open
+- [x] Directory: dedupe per-file header reads; union header is read at open, again in `NewDirectoryReader`, and again per-file in `DirectoryReader.Read` (3x/file, and each is a full parse for XLSX/JSON members). Reuse the union header instead of re-reading
 - [ ] Add a decompression cache (or single-decompress path) so compressed CSV/XLSX don't inflate the whole file on both the header and data dispatch
-- [ ] Avoid the separate 6-byte magic-byte peek (`DetectCompressionByMagic`) on every dispatcher call for files without a compression extension; detect once at open and reuse
-- [ ] Share the header already read at open with the first-load `FileReader` so CSV/XLSX don't re-read the header (open uses one reader instance, first query another)
+- [x] Avoid the separate 6-byte magic-byte peek (`DetectCompressionByMagic`) on every dispatcher call for files without a compression extension; detect once at open and reuse
+- [x] Share the header already read at open with the first-load `FileReader` so CSV/XLSX don't re-read the header (open uses one reader instance, first query another)
 
 ## Performance
 
