@@ -138,6 +138,10 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 		return nil, fmt.Errorf("failed to read headers: %w", err)
 	}
 
+	// Capture the header on the tab so the first-load reader can reuse it instead
+	// of re-reading it from disk. Same value already placed in TabInfo.Headers.
+	tab.Headers = headers
+
 	// Note: we no longer preload the file into the cache here. The grid's first
 	// query populates the base-file cache on its own; the previous async preload
 	// duplicated that work and could race the first query into reading the whole
@@ -1032,6 +1036,12 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 		a.tabsMu.Unlock()
 		return nil, fmt.Errorf("failed to read headers: %w", err)
 	}
+
+	// Capture the union header on the tab for parity with TabInfo.Headers. The
+	// first-load reader does NOT seed from this for directory tabs: the directory
+	// read path derives its header from the DirectoryReader and owns it (see
+	// NewFileReader), so seeding is limited to regular files.
+	tab.Headers = headers
 
 	// Detect file type from first file in directory
 	detectedFileType := ""

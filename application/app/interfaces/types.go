@@ -52,6 +52,12 @@ type FileTab struct {
 	Truncated   bool
 	FilesLoaded int
 
+	// Headers is the file header captured once at open time (from the tab's own
+	// Options). It is immutable for the life of the tab - the frontend opens a new
+	// tab for each filepath+options combination - so no mutex guards it. Seeded into
+	// the first-load FileReader so it does not re-read the header from disk.
+	Headers []string
+
 	// Cached, pre-sorted rows for this tab's CSV
 	CacheMu         sync.RWMutex
 	SortedHeader    []string

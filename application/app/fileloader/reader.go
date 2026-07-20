@@ -33,6 +33,7 @@ func NewFileReader(tab interface{}, progress interfaces.ProgressCallback, ctx co
 	var filePath string
 	var options FileOptions
 	var ingestTimezone *time.Location
+	var seedHeader []string // Header captured at open, reused to skip a re-read
 
 	switch t := tab.(type) {
 	case *interfaces.FileTab:
@@ -40,6 +41,13 @@ func NewFileReader(tab interface{}, progress interfaces.ProgressCallback, ctx co
 		options = FileOptions(t.Options)
 		// Get effective ingest timezone from per-file override or global default
 		ingestTimezone = timestamps.GetIngestTimezoneWithOverride(t.Options.IngestTimezoneOverride)
+		// Reuse the header captured at open (from the same Options) so Header() and
+		// the first-load path do not re-read it. Skip directory tabs: their read path
+		// derives the union header from the DirectoryReader and owns it, so we avoid
+		// any chance of divergence there. Only seed when a header was actually captured.
+		if !t.Options.IsDirectory && len(t.Headers) > 0 {
+			seedHeader = t.Headers
+		}
 	case *interfaces.SimpleFileTab:
 		filePath = t.FilePath
 		options = FileOptions{
@@ -58,6 +66,7 @@ func NewFileReader(tab interface{}, progress interfaces.ProgressCallback, ctx co
 		filePath:       filePath,
 		options:        options,
 		ingestTimezone: ingestTimezone,
+		header:         seedHeader, // nil unless captured at open (regular files only)
 		progress:       progress,
 		ctx:            ctx,
 		rowCount:       -1, // Unknown initially
