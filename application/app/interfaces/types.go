@@ -294,6 +294,10 @@ type AppService interface {
 	ExecuteQueryForTab(tab *FileTab, query, timeField string) ([]string, [][]string, error)
 	ExecuteQueryForTabWithMetadata(tab *FileTab, query, timeField string) (*QueryExecutionResult, error)
 	GetActiveTab() *FileTab
+	// GetTabForFile returns an open tab whose file hash and options exactly match,
+	// or nil if none is open. Annotation operations use it so their query runs
+	// against the tab actually being targeted rather than whatever tab is active.
+	GetTabForFile(fileHash string, opts FileOptions) *FileTab
 	Log(level, message string)
 	IsLicensed() bool
 	GetEffectiveSettings() *Settings

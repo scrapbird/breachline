@@ -578,7 +578,7 @@ func (rws *RemoteWorkspaceService) AddAnnotations(fileHash string, opts interfac
 		}
 	}
 
-	tab := rws.app.GetActiveTab()
+	tab := resolveTabForFile(rws.app, fileHash, opts)
 	if tab == nil {
 		return errors.New("file not open in active tab")
 	}
@@ -912,7 +912,7 @@ func (rws *RemoteWorkspaceService) AddAnnotationsWithRows(fileHash string, opts 
 		}
 	}
 
-	tab := rws.app.GetActiveTab()
+	tab := resolveTabForFile(rws.app, fileHash, opts)
 	if tab == nil {
 		return errors.New("file not open in active tab")
 	}
@@ -1189,7 +1189,7 @@ func (rws *RemoteWorkspaceService) GetRowAnnotation(fileHash string, opts interf
 		return nil, errors.New("file not in workspace")
 	}
 
-	tab := rws.app.GetActiveTab()
+	tab := resolveTabForFile(rws.app, fileHash, opts)
 	if tab == nil || tab.FilePath != workspaceFile.FilePath {
 		return nil, errors.New("file not open in active tab")
 	}
@@ -1227,7 +1227,7 @@ func (rws *RemoteWorkspaceService) GetRowAnnotations(fileHash string, opts inter
 		return nil, errors.New("file not in workspace")
 	}
 
-	tab := rws.app.GetActiveTab()
+	tab := resolveTabForFile(rws.app, fileHash, opts)
 	if tab == nil || tab.FilePath != workspaceFile.FilePath {
 		return nil, errors.New("file not open in active tab")
 	}
@@ -1357,7 +1357,7 @@ func (rws *RemoteWorkspaceService) DeleteRowAnnotations(fileHash string, opts in
 		return errors.New("file not in workspace")
 	}
 
-	tab := rws.app.GetActiveTab()
+	tab := resolveTabForFile(rws.app, fileHash, opts)
 	if tab == nil || tab.FilePath != workspaceFile.FilePath {
 		return errors.New("file not open in active tab")
 	}

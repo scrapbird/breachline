@@ -126,6 +126,25 @@ func (a *App) GetTab(tabID string) *FileTab {
 	return a.tabs[tabID]
 }
 
+// GetTabForFile returns an open tab whose file hash and options exactly match
+// the given fileHash and opts, or nil if none is open. Annotation operations use
+// this to run their query against the tab they are actually targeting (for
+// example the tabId an MCP client passed) instead of whatever tab is active.
+func (a *App) GetTabForFile(fileHash string, opts interfaces.FileOptions) *FileTab {
+	if fileHash == "" {
+		return nil
+	}
+	a.tabsMu.RLock()
+	defer a.tabsMu.RUnlock()
+	wantKey := opts.Key()
+	for _, tab := range a.tabs {
+		if tab != nil && tab.FileHash == fileHash && tab.Options.Key() == wantKey {
+			return tab
+		}
+	}
+	return nil
+}
+
 // SetWorkspaceService sets the workspace service for the app
 func (a *App) SetWorkspaceService(ws *WorkspaceManager) {
 	a.workspaceService = ws
@@ -970,8 +989,13 @@ func (a *App) GetRowAnnotations(fileHash string, opts interfaces.FileOptions, ro
 
 	a.Log("debug", fmt.Sprintf("[GetRowAnnotations] Called with %d row indices", len(rowIndices)))
 
-	// Get active tab for query execution
-	tab := a.GetActiveTab()
+	// Resolve the tab this file+options is loaded in so the query runs against the
+	// targeted tab (e.g. the tabId an MCP client passed), not merely whatever tab
+	// is active. Fall back to the active tab when no matching tab is open.
+	tab := a.GetTabForFile(fileHash, opts)
+	if tab == nil {
+		tab = a.GetActiveTab()
+	}
 	if tab == nil {
 		return nil, fmt.Errorf("no active tab")
 	}
@@ -1057,10 +1081,15 @@ func (a *App) GetFileAnnotations(fileHash string, opts interfaces.FileOptions) (
 		return nil, err
 	}
 
-	// Get active tab to map original indices to display indices
-	tab := a.GetActiveTab()
+	// Map original indices to display indices using the tab this file+options is
+	// loaded in, so the display indices reflect the targeted tab's current query
+	// (e.g. the tabId an MCP client passed) rather than whatever tab is active.
+	tab := a.GetTabForFile(fileHash, opts)
 	if tab == nil {
-		// No active tab, return annotations without display index mapping
+		tab = a.GetActiveTab()
+	}
+	if tab == nil {
+		// No matching or active tab, return annotations without display index mapping
 		return annotations, nil
 	}
 

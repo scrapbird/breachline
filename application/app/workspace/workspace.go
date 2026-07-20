@@ -76,6 +76,18 @@ func makeCompositeKey(fileHash string, opts interfaces.FileOptions) string {
 	return fileHash + "::" + opts.Key()
 }
 
+// resolveTabForFile returns the open tab that matches this file (hash + options)
+// so annotation queries run against the tab actually being targeted (e.g. the
+// tabId an MCP client passed), falling back to the active tab when no matching
+// tab is open. Previously these paths always used the active tab, so annotating
+// a non-active tab operated on the wrong tab's rows.
+func resolveTabForFile(app interfaces.AppService, fileHash string, opts interfaces.FileOptions) *interfaces.FileTab {
+	if tab := app.GetTabForFile(fileHash, opts); tab != nil {
+		return tab
+	}
+	return app.GetActiveTab()
+}
+
 // NOTE: The following deprecated column hash functions have been removed:
 // - splitCompositeKey (unused after row-index refactor)
 // - calculateColumnHash (unused after row-index refactor)
