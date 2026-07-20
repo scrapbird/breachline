@@ -814,6 +814,8 @@ footer p {
     position: sticky;
     top: 1.5rem;
     align-self: start;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
 }
 
 .docs-tree ul {
