@@ -86,6 +86,14 @@
 - [ ] Finish website
 - [ ] Create discord for support
 
+## File open improvements
+
+- [ ] XLSX: add Row/header caching (like JSON) so header + data don't each re-parse the whole workbook; currently header, count, and data each do a full `excelize.OpenFile` + `GetRows`, ~4 full parses per open
+- [ ] Directory: dedupe per-file header reads; union header is read at open, again in `NewDirectoryReader`, and again per-file in `DirectoryReader.Read` (3x/file, and each is a full parse for XLSX/JSON members). Reuse the union header instead of re-reading
+- [ ] Add a decompression cache (or single-decompress path) so compressed CSV/XLSX don't inflate the whole file on both the header and data dispatch
+- [ ] Avoid the separate 6-byte magic-byte peek (`DetectCompressionByMagic`) on every dispatcher call for files without a compression extension; detect once at open and reuse
+- [ ] Share the header already read at open with the first-load `FileReader` so CSV/XLSX don't re-read the header (open uses one reader instance, first query another)
+
 ## Performance
 
 - [x] Make JSON file parsing more efficient (avoid multiple reads, implement streaming)
