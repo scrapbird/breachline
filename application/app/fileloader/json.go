@@ -60,7 +60,7 @@ func parseJSONFile(filePath string) (interface{}, error) {
 	}
 
 	// Detect if the file is compressed
-	_, compression := DetectFileTypeAndCompression(filePath)
+	_, compression := detectFileTypeAndCompressionCached(filePath)
 
 	var data []byte
 	var err error

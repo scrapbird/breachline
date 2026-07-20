@@ -1,11 +1,97 @@
 package fileloader
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"breachline/app/plugin"
 )
+
+// detectionCacheEntry holds a memoized detection result along with the file
+// stat guard (mtime + size) that validates it. If the file changes on disk,
+// the guard no longer matches and detection is re-run.
+type detectionCacheEntry struct {
+	fileType    FileType
+	compression CompressionType
+	modTimeUnix int64
+	size        int64
+}
+
+// Global memoization cache for file type + compression detection (per absolute path).
+// Detection is otherwise recomputed on every dispatcher call, and for files without a
+// compression extension each recompute opens the file to peek at magic bytes. Caching the
+// result (guarded by mtime + size) elides the redundant peeks while still running the full
+// detection, including the magic-byte peek, on a cache miss.
+var (
+	detectionCacheMu sync.RWMutex
+	detectionCache   = make(map[string]detectionCacheEntry)
+)
+
+// detectFileTypeAndCompressionCached returns the detected (FileType, CompressionType)
+// pair for a file, using a memoization cache keyed by absolute path and guarded by the
+// file's mtime + size. On a cache miss (or a stat mismatch indicating the file changed)
+// it runs the full DetectFileTypeAndCompression logic - including the magic-byte peek -
+// and stores the result. If the file cannot be stat'd, it falls back to the uncached
+// detection so behavior is never worse than before.
+func detectFileTypeAndCompressionCached(filePath string) (FileType, CompressionType) {
+	if filePath == "" {
+		return FileTypeUnknown, CompressionNone
+	}
+
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		// Can't build a stable key; fall back to uncached detection.
+		return DetectFileTypeAndCompression(filePath)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		// Can't validate the guard; fall back to uncached detection.
+		return DetectFileTypeAndCompression(filePath)
+	}
+	modTimeUnix := info.ModTime().UnixNano()
+	size := info.Size()
+
+	// Fast path: read lock and check for a valid cached entry.
+	detectionCacheMu.RLock()
+	entry, found := detectionCache[absPath]
+	detectionCacheMu.RUnlock()
+	if found && entry.modTimeUnix == modTimeUnix && entry.size == size {
+		return entry.fileType, entry.compression
+	}
+
+	// Miss (or stale) - run the full detection, including the magic-byte peek.
+	fileType, compression := DetectFileTypeAndCompression(filePath)
+
+	detectionCacheMu.Lock()
+	detectionCache[absPath] = detectionCacheEntry{
+		fileType:    fileType,
+		compression: compression,
+		modTimeUnix: modTimeUnix,
+		size:        size,
+	}
+	detectionCacheMu.Unlock()
+
+	return fileType, compression
+}
+
+// ClearDetectionCache removes the memoized detection result for a file path.
+// Mirrors ClearDecompressionWarning; call this on tab close or file re-open so an
+// edited file re-detects even within the mtime guard window. Keys are absolute paths.
+func ClearDetectionCache(filePath string) {
+	if filePath == "" {
+		return
+	}
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		absPath = filePath
+	}
+	detectionCacheMu.Lock()
+	defer detectionCacheMu.Unlock()
+	delete(detectionCache, absPath)
+}
 
 // compressionExtensions maps compression extensions to their CompressionType
 var compressionExtensions = map[string]CompressionType{

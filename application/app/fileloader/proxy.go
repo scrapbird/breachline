@@ -68,7 +68,7 @@ func ReadHeader(filePath string, jpath ...string) ([]string, error) {
 // ingestTz is the effective ingest timezone for JSON timestamp parsing (can be nil for default).
 // Compressed files are automatically decompressed.
 func ReadHeaderWithOptions(filePath string, options FileOptions, ingestTz *time.Location) ([]string, error) {
-	fileType, compression := DetectFileTypeAndCompression(filePath)
+	fileType, compression := detectFileTypeAndCompressionCached(filePath)
 
 	// Handle compressed files
 	if compression != CompressionNone {
@@ -137,7 +137,7 @@ func GetRowCount(filePath string, jpath ...string) (int, error) {
 // If options.NoHeaderRow is true, all rows are counted (first row is data, not header).
 // Compressed files are automatically decompressed.
 func GetRowCountWithOptions(filePath string, options FileOptions) (int, error) {
-	fileType, compression := DetectFileTypeAndCompression(filePath)
+	fileType, compression := detectFileTypeAndCompressionCached(filePath)
 
 	// Handle compressed files
 	if compression != CompressionNone {
@@ -197,7 +197,7 @@ func getRowCountFromBytes(data []byte, fileType FileType, options FileOptions) (
 // For JSON files, jpath must be provided. For CSV/XLSX files, jpath is ignored.
 // Compressed files are automatically decompressed.
 func GetReader(filePath string, options FileOptions) (*csv.Reader, *os.File, error) {
-	fileType, compression := DetectFileTypeAndCompression(filePath)
+	fileType, compression := detectFileTypeAndCompressionCached(filePath)
 
 	// Handle compressed files
 	if compression != CompressionNone {
