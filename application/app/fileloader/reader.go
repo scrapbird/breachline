@@ -139,6 +139,14 @@ func (r *FileReader) loadRows(needsSort bool, timeIdx int, desc bool) (*interfac
 		return r.loadJSONRowsWithCaching(needsSort, timeIdx, desc)
 	}
 
+	// Uncompressed XLSX - use Row-based caching (parses the workbook at most once and
+	// shares Row pointers with the base-data/query caches). Note DetectFileType is
+	// extension-based, so compressed .xlsx.gz falls through to the reader path below,
+	// where GetReader still serves rows from the same cache via GetXLSXReader.
+	if fileType == FileTypeXLSX {
+		return r.loadXLSXRowsWithCaching(needsSort, timeIdx, desc)
+	}
+
 	// For CSV/XLSX files, use the traditional reader approach
 	return r.loadRowsFromReader(needsSort, timeIdx, desc)
 }
@@ -306,6 +314,54 @@ func (r *FileReader) loadJSONRowsWithCaching(needsSort bool, timeIdx int, desc b
 
 	if r.progress != nil {
 		r.progress("reading", rowCount, rowCount, fmt.Sprintf("Loaded %d rows from JSON cache", rowCount))
+	}
+
+	// Sort if needed (creates new slice but shares Row pointers)
+	if needsSort && timeIdx >= 0 {
+		// Create a copy of the slice to avoid modifying the cached data
+		sortedRows := make([]*interfaces.Row, len(rows))
+		copy(sortedRows, rows)
+		r.sortRowsByTime(sortedRows, timeIdx, desc)
+		rows = sortedRows
+		if r.progress != nil {
+			r.progress("sorting", rowCount, rowCount, fmt.Sprintf("Sorted %d rows", rowCount))
+		}
+	}
+
+	// Build identity display columns (show all columns)
+	displayColumns := make([]int, len(header))
+	for i := range displayColumns {
+		displayColumns[i] = i
+	}
+
+	return &interfaces.StageResult{
+		OriginalHeader: header,
+		Header:         header,
+		DisplayColumns: displayColumns,
+		Rows:           rows,
+		TimestampStats: timestampStats,
+	}, nil
+}
+
+// loadXLSXRowsWithCaching loads XLSX data using the Row-based caching system.
+// This mirrors loadJSONRowsWithCaching: the workbook is parsed at most once and the
+// resulting Row pointers are shared between the base data cache and query result caches.
+func (r *FileReader) loadXLSXRowsWithCaching(needsSort bool, timeIdx int, desc bool) (*interfaces.StageResult, error) {
+	// Pass options (NoHeaderRow), timeIdx and ingestTimezone so header parsing and
+	// timestamps match the cache key used elsewhere.
+	header, rows, timestampStats, err := GetOrParseXLSXAsRows(r.filePath, r.options, timeIdx, r.ingestTimezone)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update row count
+	rowCount := int64(len(rows))
+	r.mutex.Lock()
+	r.rowCount = rowCount
+	r.mutex.Unlock()
+
+	if r.progress != nil {
+		r.progress("reading", rowCount, rowCount, fmt.Sprintf("Loaded %d rows from XLSX cache", rowCount))
 	}
 
 	// Sort if needed (creates new slice but shares Row pointers)

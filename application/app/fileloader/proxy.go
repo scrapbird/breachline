@@ -70,6 +70,16 @@ func ReadHeader(filePath string, jpath ...string) ([]string, error) {
 func ReadHeaderWithOptions(filePath string, options FileOptions, ingestTz *time.Location) ([]string, error) {
 	fileType, compression := detectFileTypeAndCompressionCached(filePath)
 
+	// XLSX (compressed or not) is routed through the Row-based base-data cache so the
+	// workbook is parsed at most once. GetOrParseXLSXAsRows decompresses internally.
+	if fileType == FileTypeXLSX {
+		header, _, _, err := GetOrParseXLSXAsRows(filePath, options, -1, ingestTz)
+		if err != nil {
+			return nil, err
+		}
+		return header, nil
+	}
+
 	// Handle compressed files
 	if compression != CompressionNone {
 		result, err := DecompressFile(filePath, compression)
@@ -139,6 +149,17 @@ func GetRowCount(filePath string, jpath ...string) (int, error) {
 func GetRowCountWithOptions(filePath string, options FileOptions) (int, error) {
 	fileType, compression := detectFileTypeAndCompressionCached(filePath)
 
+	// XLSX (compressed or not) is routed through the Row-based base-data cache so the
+	// workbook is parsed at most once. GetOrParseXLSXAsRows decompresses internally.
+	if fileType == FileTypeXLSX {
+		ingestTz := timestamps.GetIngestTimezoneWithOverride(options.IngestTimezoneOverride)
+		_, rows, _, err := GetOrParseXLSXAsRows(filePath, options, -1, ingestTz)
+		if err != nil {
+			return 0, err
+		}
+		return len(rows), nil
+	}
+
 	// Handle compressed files
 	if compression != CompressionNone {
 		result, err := DecompressFile(filePath, compression)
@@ -199,6 +220,12 @@ func getRowCountFromBytes(data []byte, fileType FileType, options FileOptions) (
 func GetReader(filePath string, options FileOptions) (*csv.Reader, *os.File, error) {
 	fileType, compression := detectFileTypeAndCompressionCached(filePath)
 
+	// XLSX (compressed or not) is served from the Row-based base-data cache so the
+	// workbook is parsed at most once. GetXLSXReader decompresses internally.
+	if fileType == FileTypeXLSX {
+		return GetXLSXReader(filePath, options)
+	}
+
 	// Handle compressed files
 	if compression != CompressionNone {
 		result, err := DecompressFile(filePath, compression)
@@ -225,7 +252,7 @@ func GetReader(filePath string, options FileOptions) (*csv.Reader, *os.File, err
 	case FileTypeCSV:
 		return GetCSVReader(filePath)
 	case FileTypeXLSX:
-		return GetXLSXReader(filePath)
+		return GetXLSXReader(filePath, options)
 	case FileTypePlugin:
 		reader, _, err := plugin.GetPluginReader(context.Background(), filePath, options)
 		if err != nil {

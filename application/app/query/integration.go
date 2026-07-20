@@ -299,11 +299,15 @@ func (qe *QueryExecutor) ExecuteQuery(ctx context.Context, tab *FileTab, query s
 		// Cache the base file data for future queries
 		if qe.cache != nil && qe.cacheConfig.EnablePipelineCache && len(inputResult.Rows) > 0 {
 			// Store base file data in cache with pre-parsed timestamps and timestamp stats
-			// For JSON files: rows are shared pointers to baseDataStorage entries (sharedFromBaseData=true)
-			// For CSV/XLSX files: this IS the authoritative data copy (sharedFromBaseData=false)
-			// Using false for CSV/XLSX ensures accurate cache size accounting
+			// For JSON and uncompressed XLSX files: rows are shared pointers to
+			// baseDataStorage entries (sharedFromBaseData=true), so size accounting must
+			// not double-count them.
+			// For CSV (and compressed XLSX, which DetectFileType reports as CSV): this IS
+			// the authoritative data copy (sharedFromBaseData=false).
+			// DetectFileType is extension-based, so it returns FileTypeXLSX only for the
+			// uncompressed .xlsx path that loads via loadXLSXRowsWithCaching (shared).
 			fileType := fileloader.DetectFileType(tab.FilePath)
-			sharedFromBaseData := (fileType == fileloader.FileTypeJSON)
+			sharedFromBaseData := (fileType == fileloader.FileTypeJSON || fileType == fileloader.FileTypeXLSX)
 			qe.cache.StoreWithMetadata(baseFileCacheKey, inputResult.OriginalHeader, inputResult.Header, inputResult.DisplayColumns, inputResult.Rows, inputResult.TimestampStats, sharedFromBaseData)
 		}
 	}
