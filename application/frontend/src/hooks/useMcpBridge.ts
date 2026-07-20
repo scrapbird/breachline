@@ -6,7 +6,7 @@ import * as WorkspaceManagerAPI from '../../wailsjs/go/app/WorkspaceManager';
 import { FileOptions } from '../types/FileOptions';
 import { showWorkspaceOpened, showWorkspaceClosed } from '../utils/workspaceView';
 import { annotateRowsByHash, deleteRowAnnotationsByHash } from '../utils/annotations';
-import { LogEntry, LogLevel } from './useConsoleLogger';
+import { LogEntry } from './useConsoleLogger';
 
 // A command dispatched by the MCP server for the visible window to perform.
 interface McpCommand {
@@ -230,12 +230,14 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
       return { success: !!res?.success, message: res?.message || '' };
     }
     case 'get_console_log': {
-      const order: Record<LogLevel, number> = { info: 0, warn: 1, error: 2 };
-      const min = order[(p.level as LogLevel)] ?? 0;
+      // Backend also emits 'debug' (below 'info'), so rank it explicitly; an
+      // unspecified min shows everything, an unknown entry level ranks as info.
+      const order: Record<string, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+      const min = p.level in order ? order[p.level] : 0;
       const limit = p.limit && p.limit > 0 ? p.limit : 100;
       const entries = deps
         .getConsoleLogs()
-        .filter((e) => (order[e.level] ?? 0) >= min)
+        .filter((e) => (order[e.level] ?? 1) >= min)
         .slice(-limit)
         .map((e) => ({ ts: e.ts, level: e.level, message: e.message }));
       return { entries };
