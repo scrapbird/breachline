@@ -49,6 +49,12 @@ type TabInfo struct {
 	IngestTimezoneOverride string   `json:"ingestTimezoneOverride,omitempty"`
 	DecompressionWarning   string   `json:"decompressionWarning,omitempty"`
 	DetectedFileType       string   `json:"detectedFileType,omitempty"` // "csv", "json", "xlsx" - detected from actual file loader used
+	// PluginID/PluginName report the plugin actually used to load the file, even
+	// when the caller did not pin one. The frontend adopts these into the tab's
+	// options so its identity (dedup key, workspace entry, annotation lookup)
+	// reflects the real loader instead of "no plugin".
+	PluginID   string `json:"pluginId,omitempty"`
+	PluginName string `json:"pluginName,omitempty"`
 	// Truncated is true when the directory held more matching files than the
 	// configured limit, so only FilesLoaded of them were opened. The frontend
 	// warns the user that the dataset is incomplete.

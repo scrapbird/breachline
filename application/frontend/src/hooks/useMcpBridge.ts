@@ -19,7 +19,10 @@ interface McpCommand {
 // same handlers a human triggers, so AI-driven and human-driven work share one
 // session.
 export interface McpBridgeDeps {
-  openFile: (filePath: string, fileOptions?: FileOptions) => Promise<void>;
+  // Resolves to the id of the tab the open actually targeted (a freshly opened
+  // tab, or an already-open one it deduped to). Undefined when no tab was opened
+  // (e.g. a plugin-selection dialog was raised, or the open failed).
+  openFile: (filePath: string, fileOptions?: FileOptions) => Promise<string | undefined>;
   applyQuery: (query: string) => Promise<void>;
   changeTab: (tabId: string) => Promise<void> | void;
   closeTab: (tabId: string) => Promise<void> | void;
@@ -47,7 +50,17 @@ function toFileOptions(o: any): FileOptions {
   };
 }
 
-// Look up the backend tab for a path (newest match wins) and return its summary.
+// Look up a backend tab by its exact id. Preferred over path matching: the same
+// file can be open in several tabs (different options), so only the id the open
+// operation resolved to identifies the right one.
+async function findBackendTabById(tabId: string) {
+  const tabs = await AppAPI.GetTabs();
+  return (tabs || []).find((t: any) => t.id === tabId) || null;
+}
+
+// Fallback lookup by path (newest match wins) for when no explicit id is known.
+// Ambiguous when a file is open under more than one option set, so callers should
+// prefer findBackendTabById with the id the open actually returned.
 async function findBackendTab(filePath: string) {
   const tabs = await AppAPI.GetTabs();
   const matches = (tabs || []).filter((t: any) => t.filePath === filePath);
@@ -91,8 +104,8 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
         noHeaderRow: !!p.noHeaderRow,
         ingestTimezoneOverride: p.ingestTimezone || '',
       };
-      await deps.openFile(p.path, options);
-      const tab = await findBackendTab(p.path);
+      const openedTabId = await deps.openFile(p.path, options);
+      const tab = (openedTabId && await findBackendTabById(openedTabId)) || await findBackendTab(p.path);
       if (!tab) throw new Error('the file could not be opened');
       return { tabId: tab.id, fileName: tab.fileName, columns: tab.headers || [] };
     }
@@ -104,8 +117,8 @@ async function dispatch(action: string, p: any, deps: McpBridgeDeps): Promise<an
         filePattern: p.filePattern,
         includeSourceColumn: !!p.includeSourceColumn,
       };
-      await deps.openFile(p.path, options);
-      const tab = await findBackendTab(p.path);
+      const openedTabId = await deps.openFile(p.path, options);
+      const tab = (openedTabId && await findBackendTabById(openedTabId)) || await findBackendTab(p.path);
       if (!tab) throw new Error('the directory could not be opened (no matching files?)');
       // Surface truncation so the agent knows the dataset is incomplete and can
       // tell the user to raise the file limit (0 = unlimited) or narrow the pattern.

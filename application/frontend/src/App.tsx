@@ -881,8 +881,16 @@ function App() {
                 return null;
             }
 
-            // Check if file is already open in another tab
-            const existingTabId = tabState.findTabByFilePath(response.filePath || '', fileOptions);
+            // Adopt the plugin the backend actually used so this tab's identity
+            // matches an otherwise-identical open that pinned the plugin explicitly.
+            const effectiveOptions: FileOptions = { ...fileOptions };
+            if (response.pluginId && !effectiveOptions.pluginId) {
+                effectiveOptions.pluginId = response.pluginId;
+                effectiveOptions.pluginName = response.pluginName || effectiveOptions.pluginName || '';
+            }
+
+            // Check if file is already open in another tab (using canonical options)
+            const existingTabId = tabState.findTabByFilePath(response.filePath || '', effectiveOptions);
             if (existingTabId) {
                 tabState.switchTab(existingTabId);
                 addLog('info', `File already open, switched to existing tab`);
@@ -890,7 +898,7 @@ function App() {
             }
 
             // Create new tab
-            tabState.createTab(response.id, response.filePath || '', response.fileHash || '', fileOptions);
+            tabState.createTab(response.id, response.filePath || '', response.fileHash || '', effectiveOptions);
 
             // Headers are already included in response
             const hdr = response.headers || [];
@@ -992,7 +1000,7 @@ function App() {
         await handleOpenFile();
     };
 
-    const handleDashboardFileOpen = async (filePath: string, fileOptions?: FileOptions, storedFileHash?: string) => {
+    const handleDashboardFileOpen = async (filePath: string, fileOptions?: FileOptions, storedFileHash?: string): Promise<string | undefined> => {
 
         // Check if file+fileOptions combination is already open in a tab
         const normalizedOptions = fileOptions || createDefaultFileOptions();
@@ -1010,7 +1018,11 @@ function App() {
                     console.warn('Failed to set active tab:', e);
                 }
             }
-            return;
+            // Return the exact tab this open resolved to so callers (e.g. the MCP
+            // bridge) target it directly instead of re-deriving it by path, which
+            // ignores options and picks the wrong tab when the file is open under
+            // more than one option set.
+            return existingTabId;
         }
 
         // For directories from workspace, check if the hash has changed
@@ -1161,13 +1173,16 @@ function App() {
 
                         addLog('info', `Opened JSON file from workspace: ${filePath}`);
                     }
+
+                    // Report the tab actually opened so the caller targets it by id.
+                    return result.tabId;
                 }
             } catch (e: any) {
                 addLog('error', 'Failed to open JSON file: ' + (e?.message || String(e)));
             } finally {
                 setIsOpeningFile(false);
             }
-            return;
+            return undefined;
         }
 
         // Open the file in a new tab using backend API (CSV, XLSX, or JSON without jpath)
@@ -1191,8 +1206,32 @@ function App() {
 
             const tabId = response.id;
 
-            // Create new tab with noHeaderRow and ingestTimezoneOverride options
-            tabState.createTab(tabId, filePath, response.fileHash || '', normalizedOptions);
+            // Adopt the plugin the backend actually used (it canonicalizes the id
+            // even when we opened without pinning one), so the tab's identity -
+            // its dedup key, workspace entry, and annotation lookup - matches an
+            // otherwise-identical tab opened with the plugin named explicitly.
+            const effectiveOptions: FileOptions = { ...normalizedOptions };
+            if (response.pluginId && !effectiveOptions.pluginId) {
+                effectiveOptions.pluginId = response.pluginId;
+                effectiveOptions.pluginName = response.pluginName || effectiveOptions.pluginName || '';
+            }
+
+            // Re-check dedup against the canonical options: if the same file is
+            // already open under the resolved plugin, switch to it instead of
+            // leaving a duplicate tab behind.
+            if (effectiveOptions.pluginId && effectiveOptions.pluginId !== (normalizedOptions.pluginId || '')) {
+                const canonicalTabId = tabState.findTabByFilePath(filePath, effectiveOptions);
+                if (canonicalTabId && canonicalTabId !== tabId) {
+                    tabState.switchTab(canonicalTabId);
+                    if (canonicalTabId !== '__dashboard__') {
+                        try { await AppAPI.SetActiveTab(canonicalTabId); } catch (e) { console.warn('Failed to set active tab:', e); }
+                    }
+                    return canonicalTabId;
+                }
+            }
+
+            // Create new tab with the canonical (plugin-adopted) options
+            tabState.createTab(tabId, filePath, response.fileHash || '', effectiveOptions);
 
             // Get headers from response
             const hdr = response.headers || [];
@@ -1242,6 +1281,9 @@ function App() {
 
                 addLog('info', `Opened file: ${filePath}`);
             }
+
+            // Report the tab actually opened so the caller targets it by id.
+            return tabId;
         } catch (e: any) {
             const errorMsg = e?.message || String(e);
             addLog('error', 'Failed to open file: ' + errorMsg);
@@ -1250,6 +1292,7 @@ function App() {
         } finally {
             setIsOpeningFile(false);
         }
+        return undefined;
     };
 
     // Directory hash warning dialog handlers

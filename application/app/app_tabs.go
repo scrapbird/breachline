@@ -121,6 +121,20 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 	// Set all options from the provided FileOptions
 	tab.Options = opts
 
+	// Canonicalize the plugin identity. When a file is handled by a plugin (by
+	// extension) but the caller did not pin a specific plugin, the file is still
+	// loaded through that plugin - yet the tab's options would record no plugin,
+	// so its identity (dedup key, workspace entry, annotation lookup) diverges
+	// from an otherwise-identical tab opened with the plugin named explicitly.
+	// Record the plugin actually used so every open of the same file resolves to
+	// the same identity.
+	if tab.Options.PluginID == "" && fileloader.DetectFileType(filePath) == fileloader.FileTypePlugin {
+		if info, ok := plugin.GetPluginForFileWithOptions(filepath.Ext(filePath), tab.Options); ok {
+			tab.Options.PluginID = info.Manifest.ID
+			tab.Options.PluginName = info.Manifest.Name
+		}
+	}
+
 	a.tabsMu.Lock()
 	a.tabs[tabID] = tab
 	a.activeTabID = tabID
@@ -158,6 +172,8 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 		Headers:                headers,
 		IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
 		DecompressionWarning:   decompressionWarning,
+		PluginID:               tab.Options.PluginID,
+		PluginName:             tab.Options.PluginName,
 	}, nil
 }
 
