@@ -76,16 +76,13 @@ func makeCompositeKey(fileHash string, opts interfaces.FileOptions) string {
 	return fileHash + "::" + opts.Key()
 }
 
-// resolveTabForFile returns the open tab that matches this file (hash + options)
+// resolveTabForFile returns the open tab that matches this file (hash + options),
 // so annotation queries run against the tab actually being targeted (e.g. the
-// tabId an MCP client passed), falling back to the active tab when no matching
-// tab is open. Previously these paths always used the active tab, so annotating
-// a non-active tab operated on the wrong tab's rows.
+// tabId an MCP client passed). It returns nil when no matching tab is open;
+// callers must treat that as "cannot resolve rows" and fail, NOT fall back to the
+// active tab, which would silently operate on a different file.
 func resolveTabForFile(app interfaces.AppService, fileHash string, opts interfaces.FileOptions) *interfaces.FileTab {
-	if tab := app.GetTabForFile(fileHash, opts); tab != nil {
-		return tab
-	}
-	return app.GetActiveTab()
+	return app.GetTabForFile(fileHash, opts)
 }
 
 // NOTE: The following deprecated column hash functions have been removed:

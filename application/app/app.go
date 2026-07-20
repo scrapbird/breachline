@@ -991,13 +991,11 @@ func (a *App) GetRowAnnotations(fileHash string, opts interfaces.FileOptions, ro
 
 	// Resolve the tab this file+options is loaded in so the query runs against the
 	// targeted tab (e.g. the tabId an MCP client passed), not merely whatever tab
-	// is active. Fall back to the active tab when no matching tab is open.
+	// is active. No fallback: if the file is not open in any tab we cannot map its
+	// rows, so fail rather than operate on a different file.
 	tab := a.GetTabForFile(fileHash, opts)
 	if tab == nil {
-		tab = a.GetActiveTab()
-	}
-	if tab == nil {
-		return nil, fmt.Errorf("no active tab")
+		return nil, fmt.Errorf("file is not open in any tab; cannot resolve annotations")
 	}
 
 	// Execute query ONCE to get raw, unformatted row data
@@ -1084,12 +1082,10 @@ func (a *App) GetFileAnnotations(fileHash string, opts interfaces.FileOptions) (
 	// Map original indices to display indices using the tab this file+options is
 	// loaded in, so the display indices reflect the targeted tab's current query
 	// (e.g. the tabId an MCP client passed) rather than whatever tab is active.
+	// If the file is not open in any tab, return the annotations without display
+	// mapping rather than mapping against a different tab.
 	tab := a.GetTabForFile(fileHash, opts)
 	if tab == nil {
-		tab = a.GetActiveTab()
-	}
-	if tab == nil {
-		// No matching or active tab, return annotations without display index mapping
 		return annotations, nil
 	}
 

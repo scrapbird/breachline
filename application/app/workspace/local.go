@@ -598,13 +598,11 @@ func (lws *LocalWorkspaceService) AddAnnotations(fileHash string, opts interface
 	}
 
 	tab := resolveTabForFile(lws.app, fileHash, opts)
+	if tab == nil {
+		return errors.New("file is not open in any tab; cannot resolve rows to annotate")
+	}
 	if workspaceFile == nil {
 		// This file isn't in the workspace, add it so that we can annotate it
-		// Get file path from active tab
-		if tab == nil {
-			return errors.New("file not open in active tab")
-		}
-		// Add file to workspace before annotating
 		if err := lws.AddFileToWorkspace(fileHash, opts, tab.FilePath, ""); err != nil {
 			return fmt.Errorf("failed to add file to workspace: %w", err)
 		}
