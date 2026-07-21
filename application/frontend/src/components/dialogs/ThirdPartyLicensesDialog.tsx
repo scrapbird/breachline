@@ -65,7 +65,6 @@ const ThirdPartyLicensesDialog: React.FC<ThirdPartyLicensesDialogProps> = ({ sho
                         >
                             <summary style={{ cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
                                 <span style={{ fontWeight: 500 }}>{e.name}</span>
-                                <span style={{ fontSize: 12, opacity: 0.6 }}>{e.version}</span>
                                 <span style={{
                                     fontSize: 11,
                                     padding: '1px 6px',
