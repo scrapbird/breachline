@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Dialog from '../Dialog';
+import ThirdPartyLicensesDialog from './ThirdPartyLicensesDialog';
 import LogoUniversal from '../../assets/images/logo-universal.png';
 
 interface AboutDialogProps {
@@ -10,6 +11,7 @@ interface AboutDialogProps {
 }
 
 const AboutDialog: React.FC<AboutDialogProps> = ({ show, onClose, licenseEmail, licenseEndDate }) => {
+    const [showLicenses, setShowLicenses] = useState(false);
     return (
         <Dialog show={show} onClose={onClose} title="About" maxWidth={500}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '24px 20px' }}>
@@ -32,8 +34,26 @@ const AboutDialog: React.FC<AboutDialogProps> = ({ show, onClose, licenseEmail, 
                             </div>
                         );
                     })()}
+                    <div style={{ marginTop: 16 }}>
+                        <button
+                            onClick={() => setShowLicenses(true)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                color: 'inherit',
+                                opacity: 0.7,
+                                fontSize: 14,
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Third-party licenses
+                        </button>
+                    </div>
                 </div>
             </div>
+            <ThirdPartyLicensesDialog show={showLicenses} onClose={() => setShowLicenses(false)} />
         </Dialog>
     );
 };

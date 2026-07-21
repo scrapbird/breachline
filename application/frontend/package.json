@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "licenses": "node scripts/gen-third-party-licenses.mjs",
+    "prebuild": "node scripts/gen-third-party-licenses.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
