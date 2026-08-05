@@ -27,6 +27,9 @@ PY    := $(VENV)/bin/python3
 # Target environment. Override per-invocation: `make deploy ENV=prod`.
 ENV ?= dev
 
+# Default validity for `make license`.
+DAYS ?= 30
+
 # Reject anything but dev/prod up front so a typo can't spin up a stray stack.
 ENV_GUARD = \
 	if [ "$(ENV)" != "dev" ] && [ "$(ENV)" != "prod" ]; then \
@@ -37,7 +40,7 @@ ENV_GUARD = \
 # as the terraform command.
 SRC := set -a; . $(REPO)/secrets.env; set +a
 
-.PHONY: help venv init render edit-secrets view-secrets edit-config \
+.PHONY: help venv init render edit-secrets view-secrets edit-config license \
         build build-payment-api build-sync-api build-website preview-website \
         tf-payment-api tf-sync-api tf-website \
         tf-payment-api-destroy tf-sync-api-destroy tf-website-destroy \
@@ -95,6 +98,18 @@ edit-config:  ## @core Edit plaintext config.yml in $$EDITOR
 render: venv  ## @core Render secrets.env + infra/*/<ENV>.tfvars for ENV
 	@$(ENV_GUARD)
 	@$(PY) scripts/render-config.py $(ENV)
+
+# Sign a license locally with the vault key, bypassing Stripe + the
+# license-generator lambda. SIGN_ENV is deliberately NOT the deploy ENV: left
+# empty the script auto-detects the environment whose signing key matches the
+# public key embedded in application/app/license.go, so the license is valid
+# in a locally built app.
+license: venv  ## @core Sign a .lic for EMAIL (DAYS=30, SIGN_ENV=auto, OUTPUT=<user>.lic)
+	@if [ -z "$(EMAIL)" ]; then \
+	  echo "[error] EMAIL is required, e.g. make license EMAIL=you@example.com DAYS=30" >&2; exit 1; \
+	fi
+	@$(PY) scripts/generate_license.py --email $(EMAIL) --days $(DAYS) \
+	  $(if $(SIGN_ENV),--env $(SIGN_ENV)) $(if $(OUTPUT),--output $(OUTPUT))
 
 # ==================== Component toggles ====================
 # Flip the persisted flag in config.yml (so `make deploy` remembers), scoped to

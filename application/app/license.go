@@ -18,10 +18,12 @@ import (
 )
 
 // PublicKey is the ECDSA public key used to verify license JWT signatures.
-// This is a placeholder - replace with the actual public key.
+// It is the counterpart of the prod license signing key held in
+// secrets.vault.yml (vault.environments.prod.license.signing_private_key),
+// which the payment-api license-generator lambda signs licenses with.
 var PublicKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdJO2IHmjuQj0ZftNCs2BAkwPFpDN
-3VD7WGoDAN0Q7i40iuVDxfXD6shIcB8zX5/zmtW1VFO03fR5jE6gsnVkKA==
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9T7wTwJt9dVsgttbM/2k/tezoqgR
+weNuAC/JFuaxewbdSkXcQZlW7InStc4FSv0+WpqypYyJSx+0tVTLa4EQQQ==
 -----END PUBLIC KEY-----`
 
 // LicenseService manages license validation and storage
