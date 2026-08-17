@@ -157,6 +157,14 @@ func (a *App) executeQueryStreamingOptimized(tab *FileTab, queryString string, t
 		tab.QueryMu.Unlock()
 	}()
 
+	// A directory tab reads its rows here, on the first query after the open, and
+	// reports that through the same progress events the open uses. Closing the
+	// sequence out has to happen on every exit path, including query errors and
+	// cancellation, or the progress dialog stays on screen after the load finishes.
+	if tab.Options.IsDirectory {
+		defer a.emitDirectoryOpenDone()
+	}
+
 	// Use the persistent query cache from the App instance
 	// This ensures cache persists across query executions
 	cache := a.queryCache

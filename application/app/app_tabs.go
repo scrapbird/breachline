@@ -1051,23 +1051,51 @@ func (a *App) beginDirectoryOpen() (context.Context, func()) {
 		}
 		a.dirOpenCancelMu.Unlock()
 		cancel()
+
+		// Always close out the progress sequence. Emitting this from the deferred
+		// cleanup rather than the success path is what guarantees a cancelled or
+		// failed open still tells the frontend it is over.
+		a.emitDirectoryOpenDone()
 	}
 }
 
-// emitDirectoryOpenProgress forwards loader phase progress to the frontend so the
-// open reports what it is doing instead of stalling silently.
-func (a *App) emitDirectoryOpenProgress(progress fileloader.LoadProgress) {
+// directoryEventObserver is nil in normal operation. Tests set it to record the
+// directory lifecycle events sent to the frontend, so the invariant that every
+// progress sequence ends in a done event is directly assertable; a stuck progress
+// dialog is otherwise only visible by driving the GUI.
+var directoryEventObserver func(name string)
+
+// emitDirectoryEvent sends a directory lifecycle event to the frontend.
+func (a *App) emitDirectoryEvent(name string, payload map[string]interface{}) {
+	if observer := directoryEventObserver; observer != nil {
+		observer(name)
+	}
 	// The loader calls this from worker goroutines and can be driven before Startup
 	// has supplied a context (tests, headless use), where EventsEmit would panic.
 	if a.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(a.ctx, "directory:open:progress", map[string]interface{}{
+	runtime.EventsEmit(a.ctx, name, payload)
+}
+
+// emitDirectoryOpenProgress forwards loader phase progress to the frontend so the
+// open reports what it is doing instead of stalling silently.
+func (a *App) emitDirectoryOpenProgress(progress fileloader.LoadProgress) {
+	a.emitDirectoryEvent("directory:open:progress", map[string]interface{}{
 		"phase":   progress.Phase,
 		"current": progress.Current,
 		"total":   progress.Total,
 		"message": progress.Message,
 	})
+}
+
+// emitDirectoryOpenDone tells the frontend that a directory progress sequence has
+// finished. Every path that can emit progress must end by calling this, including
+// the query that loads the rows: the rows are read during the first query after an
+// open, so a sequence that only terminated at the end of the open itself left the
+// progress dialog on screen for the whole load and never took it down.
+func (a *App) emitDirectoryOpenDone() {
+	a.emitDirectoryEvent("directory:open:done", map[string]interface{}{})
 }
 
 // resolveDirectoryHash returns the hash identifying this directory, preferring one
@@ -1217,12 +1245,10 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 		a.Log("warn", fmt.Sprintf("[OPEN_DIR_TAB] %s", estimate.Warning))
 	}
 
-	// Emit completion events
+	// Emit completion event. The matching directory:open:done comes from the
+	// deferred cleanup installed by beginDirectoryOpen, so it fires on every exit
+	// path rather than only this one.
 	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "directory:open:done", map[string]interface{}{
-			"filesLoaded": len(info.Files),
-			"totalSize":   info.TotalSize,
-		})
 		runtime.EventsEmit(a.ctx, "directory:discovery:complete", map[string]interface{}{
 			"filesLoaded": len(info.Files),
 			"totalSize":   info.TotalSize,

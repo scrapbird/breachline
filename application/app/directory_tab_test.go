@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"breachline/app/fileloader"
@@ -179,6 +180,122 @@ func TestOpenDirectoryTab_ClosingTabClearsSnapshot(t *testing.T) {
 	}
 	if second.FileHash == first.FileHash {
 		t.Error("directory hash unchanged after a file was added")
+	}
+}
+
+// recordDirectoryEvents captures the directory lifecycle events emitted during a
+// test and returns an accessor for them.
+func recordDirectoryEvents(t *testing.T) func() []string {
+	t.Helper()
+
+	var mu sync.Mutex
+	var events []string
+
+	previous := directoryEventObserver
+	directoryEventObserver = func(name string) {
+		mu.Lock()
+		events = append(events, name)
+		mu.Unlock()
+	}
+	t.Cleanup(func() { directoryEventObserver = previous })
+
+	return func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		out := make([]string, len(events))
+		copy(out, events)
+		return out
+	}
+}
+
+// assertProgressSequencesClosed checks that every run of progress events is
+// terminated by a done event. The frontend shows a modal progress dialog while a
+// sequence is open, so an unterminated sequence means a dialog the user cannot get
+// rid of.
+func assertProgressSequencesClosed(t *testing.T, events []string) {
+	t.Helper()
+
+	open := false
+	for _, e := range events {
+		switch e {
+		case "directory:open:progress":
+			open = true
+		case "directory:open:done":
+			open = false
+		}
+	}
+	if open {
+		t.Fatalf("progress sequence never closed; events: %v", events)
+	}
+}
+
+// TestDirectoryProgressSequenceAlwaysCloses covers the reported bug: the rows of a
+// directory are read during the first query after the open, and that read reported
+// progress without ever reporting completion, so the progress dialog stayed up
+// after loading had finished.
+func TestDirectoryProgressSequenceAlwaysCloses(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < 8; i++ {
+		writeGzipRecord(t, filepath.Join(dir, fmt.Sprintf("%03d.json.gz", i)), i)
+	}
+
+	a := newTestApp(t)
+	events := recordDirectoryEvents(t)
+
+	opts := interfaces.FileOptions{
+		FilePattern: "*.json.gz",
+		JPath:       "$.Records",
+	}
+
+	info, err := a.OpenDirectoryTabWithOptions(dir, opts)
+	if err != nil {
+		t.Fatalf("OpenDirectoryTabWithOptions: %v", err)
+	}
+	assertProgressSequencesClosed(t, events())
+
+	afterOpen := events()
+	if len(afterOpen) == 0 || afterOpen[len(afterOpen)-1] != "directory:open:done" {
+		t.Fatalf("open did not end with a done event; events: %v", afterOpen)
+	}
+
+	// The load happens here. This is the sequence that used to be left open.
+	tab := a.GetActiveTab()
+	if tab == nil {
+		t.Fatal("no active tab")
+	}
+	if _, _, err := a.ExecuteQueryForTab(tab, "filter *", ""); err != nil {
+		t.Fatalf("ExecuteQueryForTab: %v", err)
+	}
+
+	afterQuery := events()
+	assertProgressSequencesClosed(t, afterQuery)
+	if afterQuery[len(afterQuery)-1] != "directory:open:done" {
+		t.Fatalf("query did not end with a done event; events: %v", afterQuery)
+	}
+
+	_ = info
+}
+
+// TestDirectoryProgressClosesOnFailedOpen verifies a failed open also takes the
+// progress dialog down. The done event used to sit on the success path only, so
+// every error return left it on screen.
+func TestDirectoryProgressClosesOnFailedOpen(t *testing.T) {
+	a := newTestApp(t)
+	events := recordDirectoryEvents(t)
+
+	// No files match, so the open fails after reporting discovery progress.
+	dir := t.TempDir()
+	if _, err := a.OpenDirectoryTabWithOptions(dir, interfaces.FileOptions{
+		FilePattern: "*.json.gz",
+		JPath:       "$.Records",
+	}); err == nil {
+		t.Fatal("expected an error opening a directory with no matching files")
+	}
+
+	got := events()
+	assertProgressSequencesClosed(t, got)
+	if len(got) == 0 || got[len(got)-1] != "directory:open:done" {
+		t.Fatalf("failed open did not end with a done event; events: %v", got)
 	}
 }
 

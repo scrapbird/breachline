@@ -188,9 +188,11 @@ function App() {
     const [dirHashWarningPath, setDirHashWarningPath] = useState<string>('');
     const [dirHashWarningOptions, setDirHashWarningOptions] = useState<FileOptions | null>(null);
 
-    // Directory open progress. Non-null while a directory is being scanned, hashed
-    // or loaded; the overlay it drives is the only feedback the user gets during
-    // what can be several minutes of work on a large archive.
+    // Directory open progress. dirOpenActive owns whether the overlay is on screen
+    // and is cleared by the open flow itself, so a progress event the backend never
+    // follows up on cannot leave the user staring at a dialog that will not close.
+    // dirOpenProgress only carries the phase text shown inside it.
+    const [dirOpenActive, setDirOpenActive] = useState<boolean>(false);
     const [dirOpenProgress, setDirOpenProgress] = useState<OpenProgress | null>(null);
 
     // Query history
@@ -238,6 +240,7 @@ function App() {
             addLog('error', `Failed to cancel directory open: ${err?.message || err}`);
         } finally {
             setDirOpenProgress(null);
+            setDirOpenActive(false);
         }
     }, []);
 
@@ -1683,6 +1686,11 @@ function App() {
                     return;
                 }
 
+                // Show the progress overlay for the whole open, including the
+                // post-open histogram query below, which is where the rows are
+                // actually read from disk.
+                setDirOpenActive(true);
+
                 // @ts-ignore - OpenDirectoryTabWithOptions available after Wails bindings regeneration
                 const response = await AppAPI.OpenDirectoryTabWithOptions(fileOptionsFilePath, fileOpts);
 
@@ -1770,6 +1778,8 @@ function App() {
                 setShowErrorDialog(true);
             } finally {
                 setIsOpeningFile(false);
+                setDirOpenActive(false);
+                setDirOpenProgress(null);
             }
             return;
         }
@@ -2606,6 +2616,7 @@ function App() {
             {/* Directory open progress. Scanning, hashing and loading a large archive
                 runs for minutes, so it reports its phase and offers a way out. */}
             <DirectoryOpenProgress
+                show={dirOpenActive}
                 progress={dirOpenProgress}
                 onCancel={handleCancelDirectoryOpen}
             />

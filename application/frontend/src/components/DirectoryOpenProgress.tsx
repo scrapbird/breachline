@@ -19,6 +19,9 @@ export const PHASE_LABELS: Record<string, string> = {
 };
 
 interface DirectoryOpenProgressProps {
+    // show is owned by the open flow rather than derived from progress events, so a
+    // phase event that never gets a matching completion cannot strand the dialog.
+    show: boolean;
     progress: OpenProgress | null;
     onCancel: () => void;
 }
@@ -28,14 +31,20 @@ interface DirectoryOpenProgressProps {
 // sample of them and then loads every row, which can run for minutes; without this
 // the window simply stops responding to the user with no indication of progress and
 // no way to abandon the load short of killing the app.
-const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ progress, onCancel }) => {
-    if (!progress) {
+const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ show, progress, onCancel }) => {
+    if (!show) {
         return null;
     }
 
-    const label = PHASE_LABELS[progress.phase] || progress.phase;
-    const hasTotal = progress.total > 0;
-    const percent = hasTotal ? Math.min(100, Math.round((progress.current / progress.total) * 100)) : 0;
+    const label = progress ? (PHASE_LABELS[progress.phase] || progress.phase) : 'Starting';
+    const hasTotal = !!progress && progress.total > 0;
+    const percent = hasTotal && progress
+        ? Math.min(100, Math.round((progress.current / progress.total) * 100))
+        : 0;
+
+    // The rows are read after the scan finishes, so the heading follows the phase
+    // rather than claiming the directory is still being opened throughout.
+    const heading = progress?.phase === 'loading' ? 'Loading directory' : 'Opening directory';
 
     return (
         <div
@@ -51,7 +60,7 @@ const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ progress,
                 style={{ maxWidth: '460px', padding: '20px' }}
             >
                 <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '10px' }}>
-                    Opening directory
+                    {heading}
                 </div>
 
                 <div style={{ fontSize: '13px', marginBottom: '6px' }}>
@@ -59,7 +68,7 @@ const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ progress,
                     {hasTotal && <span style={{ opacity: 0.65 }}> ({percent}%)</span>}
                 </div>
 
-                {progress.message && (
+                {progress?.message && (
                     <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '12px' }}>
                         {progress.message}
                     </div>
