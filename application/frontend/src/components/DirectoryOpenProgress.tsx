@@ -1,9 +1,10 @@
 import React from 'react';
 
-// OpenProgress is one phase of a directory open, as reported by the backend's
-// directory:open:progress event. Total is -1 while the size of the phase is not yet
-// known (the file count is only known once the scan finishes).
+// OpenProgress is one phase of a load, as reported by the backend's load:progress
+// event. Total is -1 for work whose size is not knowable in advance: the file count
+// before a scan finishes, or a parse that is one opaque call into a library.
 export interface OpenProgress {
+    kind: string;
     phase: string;
     current: number;
     total: number;
@@ -12,10 +13,17 @@ export interface OpenProgress {
 
 // Phase names are part of the event contract with the loader.
 export const PHASE_LABELS: Record<string, string> = {
+    // Directory phases
     discovering: 'Scanning directory',
     hashing: 'Hashing files',
     schema: 'Reading columns',
     loading: 'Loading rows',
+    // Single-file phases
+    reading: 'Reading file',
+    decompressing: 'Decompressing',
+    parsing: 'Parsing',
+    mapping: 'Building rows',
+    preparing: 'Preparing rows',
 };
 
 interface DirectoryOpenProgressProps {
@@ -24,6 +32,9 @@ interface DirectoryOpenProgressProps {
     show: boolean;
     progress: OpenProgress | null;
     onCancel: () => void;
+    // Only directory loads are cancellable: a single file is parsed by one
+    // uninterruptible library call, so a Cancel button there would do nothing.
+    cancellable?: boolean;
 }
 
 // DirectoryOpenProgress reports what a directory open is doing and offers a way out
@@ -31,7 +42,7 @@ interface DirectoryOpenProgressProps {
 // sample of them and then loads every row, which can run for minutes; without this
 // the window simply stops responding to the user with no indication of progress and
 // no way to abandon the load short of killing the app.
-const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ show, progress, onCancel }) => {
+const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ show, progress, onCancel, cancellable = true }) => {
     if (!show) {
         return null;
     }
@@ -42,9 +53,22 @@ const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ show, pro
         ? Math.min(100, Math.round((progress.current / progress.total) * 100))
         : 0;
 
-    // The rows are read after the scan finishes, so the heading follows the phase
-    // rather than claiming the directory is still being opened throughout.
-    const heading = progress?.phase === 'loading' ? 'Loading directory' : 'Opening directory';
+    // The heading follows what is actually happening: the rows are read after the
+    // scan finishes, so claiming the directory is still being "opened" throughout
+    // would be wrong, and a single file is not a directory at all.
+    // Before the first phase arrives the kind is not known yet, so stay neutral
+    // rather than guessing wrong for a second.
+    const isFile = progress?.kind === 'file';
+    const loadingRows = progress?.phase === 'loading' || progress?.phase === 'mapping'
+        || progress?.phase === 'preparing';
+    let heading = 'Opening';
+    if (progress) {
+        if (isFile) {
+            heading = loadingRows ? 'Loading file' : 'Opening file';
+        } else {
+            heading = loadingRows ? 'Loading directory' : 'Opening directory';
+        }
+    }
 
     return (
         <div
@@ -95,6 +119,7 @@ const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ show, pro
                     />
                 </div>
 
+                {cancellable && (
                 <button
                     onClick={onCancel}
                     style={{
@@ -109,6 +134,7 @@ const DirectoryOpenProgress: React.FC<DirectoryOpenProgressProps> = ({ show, pro
                 >
                     Cancel
                 </button>
+                )}
             </div>
         </div>
     );

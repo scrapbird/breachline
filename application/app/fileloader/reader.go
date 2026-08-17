@@ -419,6 +419,18 @@ func (r *FileReader) loadRowsFromReader(needsSort bool, timeIdx int, desc bool) 
 	rowCount := int64(0)
 	rowIndex := 0 // 0-based index for RowIndex assignment
 
+	// A CSV is streamed rather than parsed whole, so the row count is not known in
+	// advance - but the file size is, and the read offset tracks it. Reporting
+	// bytes consumed turns what was an open-ended row counter into a real
+	// percentage. The offset runs slightly ahead of the rows handed back because
+	// the reader buffers, which is immaterial for a progress bar.
+	var totalBytes int64 = -1
+	if file != nil {
+		if stat, statErr := file.Stat(); statErr == nil {
+			totalBytes = stat.Size()
+		}
+	}
+
 	for {
 		// Check for cancellation
 		select {
@@ -463,7 +475,13 @@ func (r *FileReader) loadRowsFromReader(needsSort bool, timeIdx int, desc bool) 
 
 		// Update progress periodically
 		if r.progress != nil && rowCount%interfaces.ProgressUpdateInterval == 0 {
-			r.progress("reading", rowCount, -1, fmt.Sprintf("Read %d rows", rowCount))
+			current, total := rowCount, int64(-1)
+			if totalBytes > 0 {
+				if offset, seekErr := file.Seek(0, io.SeekCurrent); seekErr == nil {
+					current, total = offset, totalBytes
+				}
+			}
+			r.progress(PhaseReading, current, total, fmt.Sprintf("Read %d rows", rowCount))
 		}
 	}
 

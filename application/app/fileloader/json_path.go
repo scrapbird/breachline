@@ -131,6 +131,14 @@ func valueToString(val interface{}) string {
 // - An array of objects (dicts): keys from the first object become headers
 // - An array of arrays (string[][]): first array is the header row
 func ApplyJSONPath(data interface{}, expression string) ([][]string, error) {
+	return applyJSONPath(data, expression, "")
+}
+
+// applyJSONPath is ApplyJSONPath with an optional source path used only to report
+// progress. Converting the parsed document into rows is a third of the cost of
+// loading a JSON file and the row count is known once the expression resolves, so
+// unlike the parse itself this stage can report a real percentage.
+func applyJSONPath(data interface{}, expression string, progressPath string) ([][]string, error) {
 	if expression == "" {
 		return nil, fmt.Errorf("JSONPath expression is empty")
 	}
@@ -173,7 +181,15 @@ func ApplyJSONPath(data interface{}, expression string) ([][]string, error) {
 		// Pre-allocate data rows slice (without header row initially)
 		dataRows := make([][]string, 0, len(arr))
 
-		for _, item := range arr {
+		total := int64(len(arr))
+		reportFileProgress(progressPath, PhaseMapping, 0, total, "Building rows")
+
+		for i, item := range arr {
+			if i%progressReportInterval == 0 && i > 0 {
+				reportFileProgress(progressPath, PhaseMapping, int64(i), total,
+					fmt.Sprintf("Building rows (%d of %d)", i, total))
+			}
+
 			itemMap, ok := item.(map[string]interface{})
 			if !ok {
 				continue // Skip non-object items

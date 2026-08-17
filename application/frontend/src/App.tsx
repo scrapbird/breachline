@@ -217,16 +217,16 @@ function App() {
     // Wails' EventsOff removes every listener registered for an event name, so the
     // subscription cannot be split across components.
     useEffect(() => {
-        EventsOn('directory:open:progress', (data: OpenProgress) => {
+        EventsOn('load:progress', (data: OpenProgress) => {
             setDirOpenProgress(data);
         });
-        EventsOn('directory:open:done', () => {
+        EventsOn('load:done', () => {
             setDirOpenProgress(null);
         });
 
         return () => {
-            EventsOff('directory:open:progress');
-            EventsOff('directory:open:done');
+            EventsOff('load:progress');
+            EventsOff('load:done');
         };
     }, []);
 
@@ -2616,9 +2616,10 @@ function App() {
             {/* Directory open progress. Scanning, hashing and loading a large archive
                 runs for minutes, so it reports its phase and offers a way out. */}
             <DirectoryOpenProgress
-                show={dirOpenActive}
+                show={dirOpenActive || isOpeningFile}
                 progress={dirOpenProgress}
                 onCancel={handleCancelDirectoryOpen}
+                cancellable={dirOpenActive}
             />
 
             {/* Directory hash warning dialog */}
@@ -2828,11 +2829,6 @@ function App() {
                 </div>
             )}
 
-            <LoadingOverlay
-                show={isOpeningFile}
-                title="Opening File"
-                message="Loading and parsing file contents..."
-            />
             <LoadingOverlay
                 show={isOpeningWorkspace}
                 title="Opening Workspace"

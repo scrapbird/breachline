@@ -157,13 +157,15 @@ func (a *App) executeQueryStreamingOptimized(tab *FileTab, queryString string, t
 		tab.QueryMu.Unlock()
 	}()
 
-	// A directory tab reads its rows here, on the first query after the open, and
-	// reports that through the same progress events the open uses. Closing the
-	// sequence out has to happen on every exit path, including query errors and
-	// cancellation, or the progress dialog stays on screen after the load finishes.
+	// Rows are read here, on the first query after the open, for both directory and
+	// single-file tabs. Closing the sequence out has to happen on every exit path,
+	// including query errors and cancellation, or the progress dialog stays on
+	// screen after the load has finished.
+	loadKind := loadKindFile
 	if tab.Options.IsDirectory {
-		defer a.emitDirectoryOpenDone()
+		loadKind = loadKindDirectory
 	}
+	defer a.emitDirectoryOpenDone()
 
 	// Use the persistent query cache from the App instance
 	// This ensures cache persists across query executions
@@ -175,20 +177,20 @@ func (a *App) executeQueryStreamingOptimized(tab *FileTab, queryString string, t
 			a.Log("debug", fmt.Sprintf("[QUERY_PROGRESS] %s - %s: %d/%d", stage, message, current, total))
 		}
 
-		// Reading a directory's rows is the longest part of opening one and happens
-		// inside the first query, so its phases are forwarded to the same event the
-		// open overlay listens on. Without this the overlay disappears at the end of
-		// the scan and the user sees nothing for the whole load.
-		if tab.Options.IsDirectory {
-			switch stage {
-			case fileloader.PhaseDiscovering, fileloader.PhaseSchema, fileloader.PhaseLoading:
-				a.emitDirectoryOpenProgress(fileloader.LoadProgress{
-					Phase:   stage,
-					Current: current,
-					Total:   total,
-					Message: message,
-				})
-			}
+		// Reading the rows is the longest part of opening a large file or directory
+		// and happens inside this first query, so its phases are forwarded to the
+		// event the progress dialog listens on. Without this the dialog goes blank
+		// at the end of the scan and says nothing for the whole load.
+		switch stage {
+		case fileloader.PhaseDiscovering, fileloader.PhaseSchema, fileloader.PhaseLoading,
+			fileloader.PhaseReading, fileloader.PhaseParsing, fileloader.PhaseMapping,
+			fileloader.PhasePreparing:
+			a.emitLoadProgress(loadKind, fileloader.LoadProgress{
+				Phase:   stage,
+				Current: current,
+				Total:   total,
+				Message: message,
+			})
 		}
 	}
 

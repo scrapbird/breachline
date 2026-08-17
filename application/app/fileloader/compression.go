@@ -99,12 +99,21 @@ func DecompressFile(filePath string, compressionType CompressionType) (*Decompre
 	}
 	defer f.Close()
 
+	// Count the compressed bytes as they are consumed so the inflate can report a
+	// real percentage. The decompressed size is not known until the stream ends,
+	// but the compressed size is just the file size, and consumption of the input
+	// tracks the work closely enough to drive a progress bar.
+	var source io.Reader = f
+	if stat, statErr := f.Stat(); statErr == nil {
+		source = newProgressReader(f, filePath, PhaseDecompressing, "Decompressing", stat.Size())
+	}
+
 	var reader io.Reader
 	var decompressErr error
 
 	switch compressionType {
 	case CompressionGzip:
-		gzReader, err := gzip.NewReader(f)
+		gzReader, err := gzip.NewReader(source)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
@@ -112,10 +121,10 @@ func DecompressFile(filePath string, compressionType CompressionType) (*Decompre
 		reader = gzReader
 
 	case CompressionBzip2:
-		reader = bzip2.NewReader(f)
+		reader = bzip2.NewReader(source)
 
 	case CompressionXZ:
-		xzReader, err := xz.NewReader(f)
+		xzReader, err := xz.NewReader(source)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create xz reader: %w", err)
 		}

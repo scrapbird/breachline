@@ -126,6 +126,10 @@ func readXLSXAllRows(filePath string) ([][]string, error) {
 
 	notifyFileParse(filePath)
 
+	// Reading a workbook is a single opaque call into the spreadsheet library, so
+	// like the JSON parse it can be named but not measured.
+	reportFileProgress(filePath, PhaseParsing, 0, -1, "Reading workbook")
+
 	// Detect compression so compressed workbooks are decompressed before parsing.
 	_, compression := detectFileTypeAndCompressionCached(filePath)
 
@@ -267,7 +271,13 @@ func GetOrParseXLSXAsRows(filePath string, options FileOptions, timeIdx int, ing
 		}
 	}
 
+	totalRows := int64(len(dataRows))
 	for i, record := range dataRows {
+		if i%progressReportInterval == 0 && i > 0 {
+			reportFileProgress(filePath, PhasePreparing, int64(i), totalRows,
+				fmt.Sprintf("Preparing rows (%d of %d)", i, totalRows))
+		}
+
 		row := &interfaces.Row{
 			RowIndex:     i,  // 0-based index of this row in the data stream
 			DisplayIndex: -1, // Will be assigned after query pipeline completes

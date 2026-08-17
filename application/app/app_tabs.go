@@ -140,6 +140,18 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 	a.activeTabID = tabID
 	a.tabsMu.Unlock()
 
+	// Report the phases of this open to the frontend. For JSON and XLSX the header
+	// read below parses the entire file, which for a large one is the whole wait,
+	// so without this the UI can only spin. The sink is registered per path and torn
+	// down here, so member files of a directory load never report through it.
+	fileloader.SetFileProgressCallback(filePath, func(progress fileloader.LoadProgress) {
+		a.emitLoadProgress(loadKindFile, progress)
+	})
+	defer func() {
+		fileloader.ClearFileProgressCallback(filePath)
+		a.emitDirectoryOpenDone()
+	}()
+
 	// Read headers for the tab
 	// This works for CSV, XLSX, and JSON files (if jpath is provided)
 	// The readHeaderForTab function uses tab.NoHeaderRow to determine how to parse headers
@@ -1059,16 +1071,27 @@ func (a *App) beginDirectoryOpen() (context.Context, func()) {
 	}
 }
 
-// directoryEventObserver is nil in normal operation. Tests set it to record the
-// directory lifecycle events sent to the frontend, so the invariant that every
-// progress sequence ends in a done event is directly assertable; a stuck progress
-// dialog is otherwise only visible by driving the GUI.
-var directoryEventObserver func(name string)
+// Load lifecycle events. Opening a directory and opening a single large file are
+// the same thing from the user's side - a wait with phases - so both report on one
+// channel and drive one progress dialog, distinguished by the kind field.
+const (
+	loadProgressEvent = "load:progress"
+	loadDoneEvent     = "load:done"
 
-// emitDirectoryEvent sends a directory lifecycle event to the frontend.
+	loadKindDirectory = "directory"
+	loadKindFile      = "file"
+)
+
+// directoryEventObserver is nil in normal operation. Tests set it to record the
+// load lifecycle events sent to the frontend, so the invariant that every progress
+// sequence ends in a done event is directly assertable; a stuck progress dialog is
+// otherwise only visible by driving the GUI.
+var directoryEventObserver func(name string, payload map[string]interface{})
+
+// emitDirectoryEvent sends a load lifecycle event to the frontend.
 func (a *App) emitDirectoryEvent(name string, payload map[string]interface{}) {
 	if observer := directoryEventObserver; observer != nil {
-		observer(name)
+		observer(name, payload)
 	}
 	// The loader calls this from worker goroutines and can be driven before Startup
 	// has supplied a context (tests, headless use), where EventsEmit would panic.
@@ -1081,7 +1104,13 @@ func (a *App) emitDirectoryEvent(name string, payload map[string]interface{}) {
 // emitDirectoryOpenProgress forwards loader phase progress to the frontend so the
 // open reports what it is doing instead of stalling silently.
 func (a *App) emitDirectoryOpenProgress(progress fileloader.LoadProgress) {
-	a.emitDirectoryEvent("directory:open:progress", map[string]interface{}{
+	a.emitLoadProgress(loadKindDirectory, progress)
+}
+
+// emitLoadProgress reports one phase of a load in progress.
+func (a *App) emitLoadProgress(kind string, progress fileloader.LoadProgress) {
+	a.emitDirectoryEvent(loadProgressEvent, map[string]interface{}{
+		"kind":    kind,
 		"phase":   progress.Phase,
 		"current": progress.Current,
 		"total":   progress.Total,
@@ -1095,7 +1124,7 @@ func (a *App) emitDirectoryOpenProgress(progress fileloader.LoadProgress) {
 // open, so a sequence that only terminated at the end of the open itself left the
 // progress dialog on screen for the whole load and never took it down.
 func (a *App) emitDirectoryOpenDone() {
-	a.emitDirectoryEvent("directory:open:done", map[string]interface{}{})
+	a.emitDirectoryEvent(loadDoneEvent, map[string]interface{}{})
 }
 
 // resolveDirectoryHash returns the hash identifying this directory, preferring one

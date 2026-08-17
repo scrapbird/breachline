@@ -83,11 +83,17 @@ func parseJSONFile(filePath string) (interface{}, error) {
 		data = result.Data
 	} else {
 		// Read uncompressed file directly
+		reportFileProgress(filePath, PhaseReading, 0, -1, "Reading file")
 		data, err = os.ReadFile(filePath)
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	// The parse itself is a single opaque call into the JSON library, so it can be
+	// named but not measured. It is around half the cost of loading a JSON file,
+	// which is why the surrounding phases report percentages and this one does not.
+	reportFileProgress(filePath, PhaseParsing, 0, -1, "Parsing JSON")
 
 	return parseJSONData(data)
 }
@@ -359,7 +365,7 @@ func GetOrParseJSONAsRows(filePath string, expression string, timeIdx int, inges
 		return nil, nil, nil, err
 	}
 
-	stringRows, err := ApplyJSONPath(jsonData, expression)
+	stringRows, err := applyJSONPath(jsonData, expression, filePath)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -409,7 +415,13 @@ func GetOrParseJSONAsRows(filePath string, expression string, timeIdx int, inges
 		}
 	}
 
+	totalRows := int64(len(stringRows) - 1)
 	for i := 1; i < len(stringRows); i++ {
+		if i%progressReportInterval == 0 {
+			reportFileProgress(filePath, PhasePreparing, int64(i), totalRows,
+				fmt.Sprintf("Preparing rows (%d of %d)", i, totalRows))
+		}
+
 		row := &interfaces.Row{
 			RowIndex:     i - 1, // 0-based index (header is row 0, so first data row is index 0)
 			DisplayIndex: -1,    // Will be assigned after query pipeline completes

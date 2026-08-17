@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -183,49 +184,83 @@ func TestOpenDirectoryTab_ClosingTabClearsSnapshot(t *testing.T) {
 	}
 }
 
-// recordDirectoryEvents captures the directory lifecycle events emitted during a
-// test and returns an accessor for them.
-func recordDirectoryEvents(t *testing.T) func() []string {
+// recordedEvent is one load lifecycle event as seen by the frontend.
+type recordedEvent struct {
+	name  string
+	kind  string
+	phase string
+}
+
+// recordDirectoryEvents captures the load lifecycle events emitted during a test
+// and returns an accessor for them.
+func recordDirectoryEvents(t *testing.T) func() []recordedEvent {
 	t.Helper()
 
 	var mu sync.Mutex
-	var events []string
+	var events []recordedEvent
 
 	previous := directoryEventObserver
-	directoryEventObserver = func(name string) {
+	directoryEventObserver = func(name string, payload map[string]interface{}) {
+		e := recordedEvent{name: name}
+		if kind, ok := payload["kind"].(string); ok {
+			e.kind = kind
+		}
+		if phase, ok := payload["phase"].(string); ok {
+			e.phase = phase
+		}
 		mu.Lock()
-		events = append(events, name)
+		events = append(events, e)
 		mu.Unlock()
 	}
 	t.Cleanup(func() { directoryEventObserver = previous })
 
-	return func() []string {
+	return func() []recordedEvent {
 		mu.Lock()
 		defer mu.Unlock()
-		out := make([]string, len(events))
+		out := make([]recordedEvent, len(events))
 		copy(out, events)
 		return out
 	}
+}
+
+// eventNames extracts just the event names, for sequence assertions.
+func eventNames(events []recordedEvent) []string {
+	names := make([]string, len(events))
+	for i, e := range events {
+		names[i] = e.name
+	}
+	return names
+}
+
+// reportedPhases extracts the phases reported for one load kind.
+func reportedPhases(events []recordedEvent, kind string) []string {
+	var phases []string
+	for _, e := range events {
+		if e.name == loadProgressEvent && e.kind == kind {
+			phases = append(phases, e.phase)
+		}
+	}
+	return phases
 }
 
 // assertProgressSequencesClosed checks that every run of progress events is
 // terminated by a done event. The frontend shows a modal progress dialog while a
 // sequence is open, so an unterminated sequence means a dialog the user cannot get
 // rid of.
-func assertProgressSequencesClosed(t *testing.T, events []string) {
+func assertProgressSequencesClosed(t *testing.T, events []recordedEvent) {
 	t.Helper()
 
 	open := false
-	for _, e := range events {
+	for _, e := range eventNames(events) {
 		switch e {
-		case "directory:open:progress":
+		case loadProgressEvent:
 			open = true
-		case "directory:open:done":
+		case loadDoneEvent:
 			open = false
 		}
 	}
 	if open {
-		t.Fatalf("progress sequence never closed; events: %v", events)
+		t.Fatalf("progress sequence never closed; events: %v", eventNames(events))
 	}
 }
 
@@ -253,8 +288,8 @@ func TestDirectoryProgressSequenceAlwaysCloses(t *testing.T) {
 	}
 	assertProgressSequencesClosed(t, events())
 
-	afterOpen := events()
-	if len(afterOpen) == 0 || afterOpen[len(afterOpen)-1] != "directory:open:done" {
+	afterOpen := eventNames(events())
+	if len(afterOpen) == 0 || afterOpen[len(afterOpen)-1] != loadDoneEvent {
 		t.Fatalf("open did not end with a done event; events: %v", afterOpen)
 	}
 
@@ -269,8 +304,8 @@ func TestDirectoryProgressSequenceAlwaysCloses(t *testing.T) {
 
 	afterQuery := events()
 	assertProgressSequencesClosed(t, afterQuery)
-	if afterQuery[len(afterQuery)-1] != "directory:open:done" {
-		t.Fatalf("query did not end with a done event; events: %v", afterQuery)
+	if names := eventNames(afterQuery); names[len(names)-1] != loadDoneEvent {
+		t.Fatalf("query did not end with a done event; events: %v", names)
 	}
 
 	_ = info
@@ -294,9 +329,122 @@ func TestDirectoryProgressClosesOnFailedOpen(t *testing.T) {
 
 	got := events()
 	assertProgressSequencesClosed(t, got)
-	if len(got) == 0 || got[len(got)-1] != "directory:open:done" {
-		t.Fatalf("failed open did not end with a done event; events: %v", got)
+	names := eventNames(got)
+	if len(names) == 0 || names[len(names)-1] != loadDoneEvent {
+		t.Fatalf("failed open did not end with a done event; events: %v", names)
 	}
+}
+
+// TestSingleFileOpenReportsProgress verifies that opening one file reports phases
+// and closes its sequence, the same contract a directory open follows. Opening a
+// large JSON or XLSX file parses the whole thing up front, so without this the UI
+// has nothing to show for the entire wait.
+func TestSingleFileOpenReportsProgress(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "events.json.gz")
+
+	// Enough records that the row-building loops cross a progress reporting
+	// interval and actually emit.
+	var sb strings.Builder
+	sb.WriteString(`{"Records":[`)
+	for i := 0; i < 9000; i++ {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		fmt.Fprintf(&sb, `{"eventTime":"2026-08-17T00:00:00Z","id":"row-%05d"}`, i)
+	}
+	sb.WriteString("]}")
+	writeGzipBody(t, path, sb.String())
+
+	a := newTestApp(t)
+
+	events := recordDirectoryEvents(t)
+
+	info, err := a.OpenFileTabWithOptions(path, interfaces.FileOptions{JPath: "$.Records"})
+	if err != nil {
+		t.Fatalf("OpenFileTabWithOptions: %v", err)
+	}
+	if len(info.Headers) == 0 {
+		t.Fatal("open returned no headers")
+	}
+
+	got := reportedPhases(events(), loadKindFile)
+
+	// Decompression and row building are countable and must report; the JSON parse
+	// between them can only be named.
+	for _, want := range []string{
+		fileloader.PhaseDecompressing,
+		fileloader.PhaseParsing,
+		fileloader.PhaseMapping,
+	} {
+		if !containsString(got, want) {
+			t.Errorf("phase %q never reported; got %v", want, got)
+		}
+	}
+
+	assertProgressSequencesClosed(t, events())
+	seen := eventNames(events())
+	if len(seen) == 0 || seen[len(seen)-1] != loadDoneEvent {
+		t.Fatalf("file open did not end with a done event; events: %v", seen)
+	}
+}
+
+// TestSingleFileProgressIsScopedToItsFile verifies the per-file progress sink is
+// not picked up by other files, so a directory load cannot spray progress through
+// a callback registered for something else.
+func TestSingleFileProgressIsScopedToItsFile(t *testing.T) {
+	dir := t.TempDir()
+	watched := filepath.Join(dir, "watched.json.gz")
+	other := filepath.Join(dir, "other.json.gz")
+	writeGzipRecord(t, watched, 1)
+	writeGzipRecord(t, other, 2)
+
+	a := newTestApp(t)
+
+	var mu sync.Mutex
+	count := 0
+	fileloader.SetFileProgressCallback(watched, func(fileloader.LoadProgress) {
+		mu.Lock()
+		count++
+		mu.Unlock()
+	})
+	t.Cleanup(func() { fileloader.ClearFileProgressCallback(watched) })
+
+	if _, err := a.OpenFileTabWithOptions(other, interfaces.FileOptions{JPath: "$.Records"}); err != nil {
+		t.Fatalf("OpenFileTabWithOptions: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if count != 0 {
+		t.Fatalf("opening %s reported %d progress events through the sink registered for %s",
+			filepath.Base(other), count, filepath.Base(watched))
+	}
+}
+
+// writeGzipBody writes an arbitrary gzipped body to path.
+func writeGzipBody(t *testing.T, path, body string) {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write([]byte(body)); err != nil {
+		t.Fatalf("gzip write: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("gzip close: %v", err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+}
+
+func containsString(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
 }
 
 // columnPos returns the index of a column in a header, or -1.
