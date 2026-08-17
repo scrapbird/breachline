@@ -277,8 +277,24 @@ func (a *App) CloseTab(tabID string) error {
 	a.tabsMu.Lock()
 	defer a.tabsMu.Unlock()
 
-	if _, exists := a.tabs[tabID]; !exists {
+	tab, exists := a.tabs[tabID]
+	if !exists {
 		return fmt.Errorf("tab not found: %s", tabID)
+	}
+
+	// Drop the cached directory snapshot so reopening this directory re-reads disk
+	// rather than reusing the file list and schema captured at the previous open.
+	if tab.Options.IsDirectory && tab.FilePath != "" {
+		stillOpen := false
+		for id, other := range a.tabs {
+			if id != tabID && other.Options.IsDirectory && other.FilePath == tab.FilePath {
+				stillOpen = true
+				break
+			}
+		}
+		if !stillOpen {
+			fileloader.ClearDirectorySnapshotsFor(tab.FilePath)
+		}
 	}
 
 	delete(a.tabs, tabID)
@@ -956,8 +972,28 @@ func (a *App) CheckDirectoryHashMismatch(dirPath string, filePattern string, sto
 		return nil, fmt.Errorf("failed to calculate directory hash: %w", err)
 	}
 
+	if currentHash == storedHash {
+		return &DirectoryHashCheckResult{
+			HasMismatch: false,
+			CurrentHash: currentHash,
+			StoredHash:  storedHash,
+		}, nil
+	}
+
+	// The stored hash may predate metadata hashing. Before reporting a mismatch,
+	// check it against the legacy content hash: an unchanged directory recorded by
+	// an older version must not look modified just because the algorithm changed.
+	if legacyHash, legacyErr := fileloader.CalculateDirectoryContentHash(context.Background(), info, nil); legacyErr == nil && legacyHash == storedHash {
+		a.Log("info", "[HASH_CHECK] Directory matches its stored content hash (recorded before metadata hashing); not a mismatch")
+		return &DirectoryHashCheckResult{
+			HasMismatch: false,
+			CurrentHash: storedHash,
+			StoredHash:  storedHash,
+		}, nil
+	}
+
 	return &DirectoryHashCheckResult{
-		HasMismatch: currentHash != storedHash,
+		HasMismatch: true,
 		CurrentHash: currentHash,
 		StoredHash:  storedHash,
 	}, nil
@@ -969,7 +1005,101 @@ func (a *App) PreviewDirectory(dirPath string, pattern string, jpath string) (*f
 	currentSettings := settings.GetEffectiveSettings()
 	maxFiles := currentSettings.DirectoryFileLimit()
 
-	return fileloader.PreviewDirectory(dirPath, pattern, jpath, maxFiles)
+	// The preview scans and samples the directory, which on a large archive is not
+	// instant, so it runs under the same cancellable context and progress reporting
+	// as an open and its snapshot is reused when the user goes on to open.
+	ctx, finish := a.beginDirectoryOpen()
+	defer finish()
+
+	return fileloader.PreviewDirectoryContext(ctx, dirPath, pattern, jpath, maxFiles, a.emitDirectoryOpenProgress)
+}
+
+// CancelDirectoryOpen cancels an in-progress directory open. Scanning, hashing and
+// schema resolution over a large archive can run for minutes, so the user must be
+// able to abandon it without killing the app.
+func (a *App) CancelDirectoryOpen() {
+	a.dirOpenCancelMu.Lock()
+	cancel := a.dirOpenCancelFunc
+	a.dirOpenCancelMu.Unlock()
+
+	if cancel != nil {
+		a.Log("info", "[OPEN_DIR_TAB] Cancelling directory open")
+		cancel()
+	}
+}
+
+// beginDirectoryOpen installs a fresh cancellable context for a directory open,
+// cancelling any open still running, and returns it with its cleanup function.
+func (a *App) beginDirectoryOpen() (context.Context, func()) {
+	a.dirOpenCancelMu.Lock()
+	if a.dirOpenCancelFunc != nil {
+		a.dirOpenCancelFunc()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	a.dirOpenCancelFunc = cancel
+	a.dirOpenGeneration++
+	generation := a.dirOpenGeneration
+	a.dirOpenCancelMu.Unlock()
+
+	return ctx, func() {
+		a.dirOpenCancelMu.Lock()
+		// Only surrender the slot if a later open has not already claimed it.
+		// Clearing unconditionally would drop a newer open's cancel function when
+		// this one finished after that one started, leaving it uncancellable.
+		if a.dirOpenGeneration == generation {
+			a.dirOpenCancelFunc = nil
+		}
+		a.dirOpenCancelMu.Unlock()
+		cancel()
+	}
+}
+
+// emitDirectoryOpenProgress forwards loader phase progress to the frontend so the
+// open reports what it is doing instead of stalling silently.
+func (a *App) emitDirectoryOpenProgress(progress fileloader.LoadProgress) {
+	// The loader calls this from worker goroutines and can be driven before Startup
+	// has supplied a context (tests, headless use), where EventsEmit would panic.
+	if a.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "directory:open:progress", map[string]interface{}{
+		"phase":   progress.Phase,
+		"current": progress.Current,
+		"total":   progress.Total,
+		"message": progress.Message,
+	})
+}
+
+// resolveDirectoryHash returns the hash identifying this directory, preferring one
+// already recorded for it in the open workspace.
+//
+// Directory identity is derived from file metadata rather than file contents. A
+// workspace written before that change recorded a content hash, and annotations are
+// keyed by hash, so adopting the stored value when it still describes this
+// directory is what keeps those annotations attached to their rows.
+func (a *App) resolveDirectoryHash(ctx context.Context, info *fileloader.DirectoryInfo, opts interfaces.FileOptions) (string, error) {
+	dirHash, err := fileloader.CalculateDirectoryHash(info)
+	if err != nil {
+		return "", err
+	}
+
+	if a.workspaceService == nil || !a.workspaceService.IsWorkspaceOpen() {
+		return dirHash, nil
+	}
+	if file, lookupErr := a.workspaceService.GetWorkspaceFile(dirHash, opts); lookupErr == nil && file != nil {
+		return dirHash, nil
+	}
+
+	legacyHash, legacyErr := fileloader.CalculateDirectoryContentHash(ctx, info, a.emitDirectoryOpenProgress)
+	if legacyErr != nil {
+		return dirHash, nil
+	}
+	if file, lookupErr := a.workspaceService.GetWorkspaceFile(legacyHash, opts); lookupErr == nil && file != nil {
+		a.Log("info", "[OPEN_DIR_TAB] Using the content hash this directory was recorded under in the workspace so existing annotations stay attached")
+		return legacyHash, nil
+	}
+
+	return dirHash, nil
 }
 
 // OpenDirectoryTabWithOptions opens a directory as a virtual file tab
@@ -983,24 +1113,33 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 	// Ensure IsDirectory is set
 	opts.IsDirectory = true
 
+	ctx, finish := a.beginDirectoryOpen()
+	defer finish()
+
 	// Get max files setting
 	currentSettings := settings.GetEffectiveSettings()
 	maxFiles := currentSettings.DirectoryFileLimit()
 
-	// Discover files with progress reporting
-	info, err := fileloader.DiscoverFiles(dirPath, fileloader.DirectoryDiscoveryOptions{
-		Pattern:  opts.FilePattern,
-		MaxFiles: maxFiles,
-	}, func(progress fileloader.DiscoveryProgress) {
-		// Emit progress event to frontend
-		runtime.EventsEmit(a.ctx, "directory:discovery:progress", map[string]interface{}{
-			"filesFound":  progress.FilesFound,
-			"dirsScanned": progress.DirsScanned,
-			"currentPath": progress.CurrentPath,
-			"totalSize":   progress.TotalSize,
-		})
-	})
+	// A directory reopened after being closed must see what is on disk now, not a
+	// snapshot left over from a previous open.
+	fileloader.ClearDirectorySnapshotsFor(dirPath)
+
+	// Discover files and resolve the schema once. Every later consumer (the query
+	// pipeline's header lookup, timestamp column detection, the row load) reuses
+	// this same snapshot rather than rescanning and re-parsing every member file.
+	loadOptions := fileloader.FileOptions{
+		JPath:                  opts.JPath,
+		NoHeaderRow:            opts.NoHeaderRow,
+		IncludeSourceColumn:    opts.IncludeSourceColumn,
+		IngestTimezoneOverride: opts.IngestTimezoneOverride,
+		FilePattern:            opts.FilePattern,
+	}
+
+	info, err := fileloader.GetDirectorySnapshot(ctx, dirPath, loadOptions, maxFiles, a.emitDirectoryOpenProgress)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("directory open cancelled")
+		}
 		return nil, fmt.Errorf("failed to scan directory: %w", err)
 	}
 
@@ -1016,9 +1155,19 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 	}
 
 	// Calculate directory hash for caching
-	dirHash, err := fileloader.CalculateDirectoryHash(info)
+	dirHash, err := a.resolveDirectoryHash(ctx, info, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate directory hash: %w", err)
+	}
+
+	// Read unified headers from the snapshot (no further file reads).
+	headers, err := fileloader.GetDirectoryHeader(info, loadOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read headers: %w", err)
+	}
+
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("directory open cancelled")
 	}
 
 	// Create tab
@@ -1035,34 +1184,20 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 	}
 	tab.SortCond = sync.NewCond(&tab.CacheMu)
 
+	// Capture the union header on the tab. The first-load reader seeds from this,
+	// so the query pipeline does not re-resolve the schema of every member file.
+	tab.Headers = headers
+
 	a.tabsMu.Lock()
 	a.tabs[tabID] = tab
 	a.activeTabID = tabID
 	a.tabsMu.Unlock()
 
-	// Read unified headers
-	headers, err := fileloader.GetDirectoryHeader(info, fileloader.FileOptions{
-		JPath:               opts.JPath,
-		NoHeaderRow:         opts.NoHeaderRow,
-		IncludeSourceColumn: opts.IncludeSourceColumn,
-	})
-	if err != nil {
-		a.tabsMu.Lock()
-		delete(a.tabs, tabID)
-		a.tabsMu.Unlock()
-		return nil, fmt.Errorf("failed to read headers: %w", err)
-	}
-
-	// Capture the union header on the tab for parity with TabInfo.Headers. The
-	// first-load reader does NOT seed from this for directory tabs: the directory
-	// read path derives its header from the DirectoryReader and owns it (see
-	// NewFileReader), so seeding is limited to regular files.
-	tab.Headers = headers
-
-	// Detect file type from first file in directory
+	// Detect file type from first file in directory. Detection sees through any
+	// compression extension, so a directory of .json.gz reports as JSON.
 	detectedFileType := ""
 	if len(info.Files) > 0 {
-		ft := fileloader.DetectFileType(info.Files[0])
+		ft := fileloader.DetectFileTypeForPath(info.Files[0])
 		switch ft {
 		case fileloader.FileTypeJSON:
 			detectedFileType = "json"
@@ -1073,21 +1208,40 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 		}
 	}
 
-	// Emit completion event
-	runtime.EventsEmit(a.ctx, "directory:discovery:complete", map[string]interface{}{
-		"filesLoaded": len(info.Files),
-		"totalSize":   info.TotalSize,
-	})
+	// Project what loading this directory will cost in memory. The whole dataset is
+	// materialized in RAM, and for a compressed archive the on-disk size understates
+	// that by an order of magnitude, so the user is told before committing to a load
+	// that cannot finish.
+	estimate := fileloader.EstimateDirectoryMemory(info)
+	if estimate.Warning != "" {
+		a.Log("warn", fmt.Sprintf("[OPEN_DIR_TAB] %s", estimate.Warning))
+	}
+
+	// Emit completion events
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "directory:open:done", map[string]interface{}{
+			"filesLoaded": len(info.Files),
+			"totalSize":   info.TotalSize,
+		})
+		runtime.EventsEmit(a.ctx, "directory:discovery:complete", map[string]interface{}{
+			"filesLoaded": len(info.Files),
+			"totalSize":   info.TotalSize,
+		})
+	}
 
 	return &TabInfo{
-		ID:                     tabID,
-		FilePath:               dirPath,
-		FileName:               tab.FileName,
-		FileHash:               dirHash,
-		Headers:                headers,
-		IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
-		DetectedFileType:       detectedFileType,
-		Truncated:              info.Truncated,
-		FilesLoaded:            len(info.Files),
+		ID:                        tabID,
+		FilePath:                  dirPath,
+		FileName:                  tab.FileName,
+		FileHash:                  dirHash,
+		Headers:                   headers,
+		IngestTimezoneOverride:    tab.Options.IngestTimezoneOverride,
+		DetectedFileType:          detectedFileType,
+		Truncated:                 info.Truncated,
+		FilesLoaded:               len(info.Files),
+		SampledSchema:             info.SampledSchema,
+		SchemaSampled:             info.SchemaSampled,
+		EstimatedUncompressedSize: estimate.EstimatedBytes,
+		MemoryWarning:             estimate.Warning,
 	}, nil
 }

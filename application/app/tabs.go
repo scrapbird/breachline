@@ -60,4 +60,15 @@ type TabInfo struct {
 	// warns the user that the dataset is incomplete.
 	Truncated   bool `json:"truncated,omitempty"`
 	FilesLoaded int  `json:"filesLoaded,omitempty"`
+	// SampledSchema is true when the directory's column list was resolved from a
+	// sample of its files rather than all of them, so a column unique to an
+	// unsampled file is not in Headers yet. Such columns are still loaded: they are
+	// appended to the header as the files carrying them are read.
+	SampledSchema bool `json:"sampledSchema,omitempty"`
+	SchemaSampled int  `json:"schemaSampled,omitempty"`
+	// EstimatedUncompressedSize is the projected size of the directory's data once
+	// decompressed, and MemoryWarning is set when loading it is projected to need
+	// more memory than the machine has available.
+	EstimatedUncompressedSize int64  `json:"estimatedUncompressedSize,omitempty"`
+	MemoryWarning             string `json:"memoryWarning,omitempty"`
 }

@@ -29,20 +29,28 @@ func TestNewFileReader_SeedsHeaderFromTab(t *testing.T) {
 	}
 }
 
-// TestNewFileReader_DoesNotSeedDirectoryHeader verifies that directory tabs do not
-// consume the tab's captured header - the directory read path owns its own header.
-func TestNewFileReader_DoesNotSeedDirectoryHeader(t *testing.T) {
+// TestNewFileReader_SeedsDirectoryHeader verifies that directory tabs also consume
+// the tab's captured union header. Both the open path and the read path derive that
+// header from the same cached directory snapshot, so they cannot diverge; without
+// the seed, every query rebuilt a FileReader that re-resolved the schema of every
+// member file in the directory.
+func TestNewFileReader_SeedsDirectoryHeader(t *testing.T) {
+	seeded := []string{"a", "b"}
 	tab := &interfaces.FileTab{
 		FilePath: "/nonexistent/dir",
-		Headers:  []string{"a", "b"},
+		Headers:  seeded,
 		Options:  interfaces.FileOptions{IsDirectory: true},
 	}
 
 	r := NewFileReader(tab, nil, context.Background())
 	defer r.Close()
 
-	if r.header != nil {
-		t.Fatalf("directory tab header was seeded (%v), want nil", r.header)
+	got, err := r.Header()
+	if err != nil {
+		t.Fatalf("Header() returned error (header not seeded, re-read from disk): %v", err)
+	}
+	if len(got) != len(seeded) || got[0] != seeded[0] || got[1] != seeded[1] {
+		t.Fatalf("Header() = %v, want %v", got, seeded)
 	}
 }
 

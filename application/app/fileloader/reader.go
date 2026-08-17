@@ -42,10 +42,11 @@ func NewFileReader(tab interface{}, progress interfaces.ProgressCallback, ctx co
 		// Get effective ingest timezone from per-file override or global default
 		ingestTimezone = timestamps.GetIngestTimezoneWithOverride(t.Options.IngestTimezoneOverride)
 		// Reuse the header captured at open (from the same Options) so Header() and
-		// the first-load path do not re-read it. Skip directory tabs: their read path
-		// derives the union header from the DirectoryReader and owns it, so we avoid
-		// any chance of divergence there. Only seed when a header was actually captured.
-		if !t.Options.IsDirectory && len(t.Headers) > 0 {
+		// the first-load path do not re-read it. Directory tabs are seeded too: the
+		// open path and the read path now both derive their union header from the same
+		// cached directory snapshot, so they cannot diverge, and without the seed every
+		// query built a fresh FileReader that re-resolved the schema of every member.
+		if len(t.Headers) > 0 {
 			seedHeader = t.Headers
 		}
 	case *interfaces.SimpleFileTab:
@@ -142,16 +143,16 @@ func (r *FileReader) loadRows(needsSort bool, timeIdx int, desc bool) (*interfac
 		return r.loadRowsFromDirectory(needsSort, timeIdx, desc)
 	}
 
-	// Check if this is a JSON file with jpath - use Row-based caching for efficiency
-	fileType := DetectFileType(r.filePath)
+	// Check if this is a JSON file with jpath - use Row-based caching for efficiency.
+	// Detection sees through compression, so a .json.gz takes this path too and is
+	// parsed at most once instead of being re-inflated and re-parsed on every call.
+	fileType := DetectFileTypeForPath(r.filePath)
 	if fileType == FileTypeJSON && r.options.JPath != "" {
 		return r.loadJSONRowsWithCaching(needsSort, timeIdx, desc)
 	}
 
-	// Uncompressed XLSX - use Row-based caching (parses the workbook at most once and
-	// shares Row pointers with the base-data/query caches). Note DetectFileType is
-	// extension-based, so compressed .xlsx.gz falls through to the reader path below,
-	// where GetReader still serves rows from the same cache via GetXLSXReader.
+	// XLSX (compressed or not) uses Row-based caching: the workbook is parsed at
+	// most once and Row pointers are shared with the base-data/query caches.
 	if fileType == FileTypeXLSX {
 		return r.loadXLSXRowsWithCaching(needsSort, timeIdx, desc)
 	}
@@ -160,40 +161,44 @@ func (r *FileReader) loadRows(needsSort bool, timeIdx int, desc bool) (*interfac
 	return r.loadRowsFromReader(needsSort, timeIdx, desc)
 }
 
+// loadProgress adapts the reader's stage-based progress callback to the phase-based
+// one the directory loader reports through, so directory scanning, schema
+// resolution and row loading all surface as progress instead of a silent stall.
+func (r *FileReader) loadProgress() LoadProgressCallback {
+	if r.progress == nil {
+		return nil
+	}
+	return func(p LoadProgress) {
+		r.progress(p.Phase, p.Current, p.Total, p.Message)
+	}
+}
+
 // loadRowsFromDirectory loads rows from all files in a directory
 func (r *FileReader) loadRowsFromDirectory(needsSort bool, timeIdx int, desc bool) (*interfaces.StageResult, error) {
-	// Discover files in the directory. Apply the same "maximum files when opening a
-	// directory" limit the open path used, so the rows we load match the files that
-	// were discovered, counted, and hashed when the tab was opened (0 = unlimited).
-	info, err := DiscoverFiles(r.filePath, DirectoryDiscoveryOptions{
-		Pattern:  r.options.FilePattern,
-		MaxFiles: EffectiveDirectoryFileLimit(),
-	}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover files: %w", err)
-	}
-
-	// Create directory reader with options (ensure ingest timezone is set).
-	// NewDirectoryReader parses each member's header exactly once to build the
-	// union schema and caches the per-file headers for row mapping, so we take the
-	// union header from the reader instead of re-discovering and re-reading via
-	// r.Header().
+	// Resolve the directory through the snapshot cache. Apply the same "maximum
+	// files when opening a directory" limit the open path used, so the rows we load
+	// match the files that were discovered, counted, and hashed when the tab was
+	// opened (0 = unlimited). The snapshot means discovery and the per-file schema
+	// resolution are shared with the open path rather than repeated here.
 	dirOptions := r.options
 	if dirOptions.IngestTimezoneOverride == "" && r.ingestTimezone != nil {
 		dirOptions.IngestTimezoneOverride = r.ingestTimezone.String()
 	}
-	dirReader, err := NewDirectoryReader(info, dirOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create directory reader: %w", err)
-	}
-	defer dirReader.Close()
 
-	// Union header from the reader; cache it on the FileReader for later Header() calls.
-	header := dirReader.Header()
-	r.mutex.Lock()
-	if r.header == nil {
-		r.header = header
+	info, err := GetDirectorySnapshot(r.ctx, r.filePath, dirOptions, EffectiveDirectoryFileLimit(), r.loadProgress())
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover files: %w", err)
 	}
+
+	// Member files are parsed in parallel; rows come back in discovery order.
+	header, records, err := LoadDirectoryRows(r.ctx, info, dirOptions, r.ingestTimezone, r.loadProgress())
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the union header on the FileReader for later Header() calls.
+	r.mutex.Lock()
+	r.header = header
 	r.mutex.Unlock()
 
 	// Detect timestamp field
@@ -201,35 +206,14 @@ func (r *FileReader) loadRowsFromDirectory(needsSort bool, timeIdx int, desc boo
 		timeIdx = timestamps.DetectTimestampIndex(header)
 	}
 
-	// Read all rows with pre-parsed timestamps
-	var rows []*interfaces.Row
-	rowCount := int64(0)
-	rowIndex := 0
-
-	for {
-		// Check for cancellation
-		select {
-		case <-r.ctx.Done():
-			return nil, r.ctx.Err()
-		default:
-		}
-
-		// Read next row
-		record, err := dirReader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			r.logError("Error reading directory row", err)
-			continue
-		}
-		if record == nil {
-			continue
-		}
-
-		// Create Row object with pre-parsed timestamp and RowIndex
+	// Wrap records as Rows with pre-parsed timestamps. Timestamp parsing over tens
+	// of millions of rows is significant on its own, and each row is independent,
+	// so it fans out across the same worker pool.
+	rows := make([]*interfaces.Row, len(records))
+	buildRow := func(i int) error {
+		record := records[i]
 		row := &interfaces.Row{
-			RowIndex:     rowIndex,
+			RowIndex:     i,
 			DisplayIndex: -1,
 			Data:         record,
 		}
@@ -239,16 +223,14 @@ func (r *FileReader) loadRowsFromDirectory(needsSort bool, timeIdx int, desc boo
 				row.HasTime = true
 			}
 		}
-
-		rows = append(rows, row)
-		rowCount++
-		rowIndex++
-
-		// Update progress periodically
-		if r.progress != nil && rowCount%interfaces.ProgressUpdateInterval == 0 {
-			r.progress("reading", rowCount, -1, fmt.Sprintf("Read %d rows from directory", rowCount))
-		}
+		rows[i] = row
+		return nil
 	}
+	if err := parallelFor(r.ctx, len(records), buildRow); err != nil {
+		return nil, err
+	}
+
+	rowCount := int64(len(rows))
 
 	// Update row count
 	r.mutex.Lock()

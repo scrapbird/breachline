@@ -80,6 +80,17 @@ func ReadHeaderWithOptions(filePath string, options FileOptions, ingestTz *time.
 		return header, nil
 	}
 
+	// JSON (compressed or not) is likewise routed through the Row-based base-data
+	// cache. Dispatching on type before compression matters: routing .json.gz down
+	// the generic decompress-then-FromBytes path below would bypass the cache and
+	// re-parse the whole file on every call.
+	if fileType == FileTypeJSON {
+		if options.JPath == "" {
+			return nil, fmt.Errorf("JSONPath expression is required for JSON files")
+		}
+		return ReadJSONHeaderWithTimezone(filePath, options.JPath, ingestTz)
+	}
+
 	// Handle compressed files
 	if compression != CompressionNone {
 		result, err := DecompressFile(filePath, compression)
@@ -160,6 +171,16 @@ func GetRowCountWithOptions(filePath string, options FileOptions) (int, error) {
 		return len(rows), nil
 	}
 
+	// JSON (compressed or not) goes through the Row-based base-data cache. See the
+	// note in ReadHeaderWithOptions on why type is dispatched before compression.
+	if fileType == FileTypeJSON {
+		if options.JPath == "" {
+			return 0, fmt.Errorf("JSONPath expression is required for JSON files")
+		}
+		ingestTz := timestamps.GetIngestTimezoneWithOverride(options.IngestTimezoneOverride)
+		return GetJSONRowCountWithTimezone(filePath, options.JPath, ingestTz)
+	}
+
 	// Handle compressed files
 	if compression != CompressionNone {
 		result, err := DecompressFile(filePath, compression)
@@ -226,6 +247,15 @@ func GetReader(filePath string, options FileOptions) (*csv.Reader, *os.File, err
 		return GetXLSXReader(filePath, options)
 	}
 
+	// JSON (compressed or not) is served from the Row-based base-data cache. See the
+	// note in ReadHeaderWithOptions on why type is dispatched before compression.
+	if fileType == FileTypeJSON {
+		if options.JPath == "" {
+			return nil, nil, fmt.Errorf("JSONPath expression is required for JSON files")
+		}
+		return GetJSONReader(filePath, options.JPath)
+	}
+
 	// Handle compressed files
 	if compression != CompressionNone {
 		result, err := DecompressFile(filePath, compression)
@@ -285,12 +315,12 @@ func getReaderFromBytes(data []byte, fileType FileType, jpath string) (*csv.Read
 
 // ReadHeaderForPath handles both files and directories
 // For directories, returns the union header across all files
+//
+// Directory paths resolve through the snapshot cache, so discovery and the
+// per-file schema read happen once for a directory rather than once per caller.
 func ReadHeaderForPath(path string, options FileOptions, ingestTz *time.Location) ([]string, error) {
 	if IsDirectory(path) {
-		info, err := DiscoverFiles(path, DirectoryDiscoveryOptions{
-			Pattern:  options.FilePattern, // Use file pattern for file discovery
-			MaxFiles: EffectiveDirectoryFileLimit(),
-		}, nil)
+		info, err := GetDirectorySnapshot(context.Background(), path, options, EffectiveDirectoryFileLimit(), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -303,10 +333,7 @@ func ReadHeaderForPath(path string, options FileOptions, ingestTz *time.Location
 // For directories, returns total row count across all files
 func GetRowCountForPath(path string, options FileOptions) (int, error) {
 	if IsDirectory(path) {
-		info, err := DiscoverFiles(path, DirectoryDiscoveryOptions{
-			Pattern:  options.FilePattern,
-			MaxFiles: EffectiveDirectoryFileLimit(),
-		}, nil)
+		info, err := GetDirectorySnapshot(context.Background(), path, options, EffectiveDirectoryFileLimit(), nil)
 		if err != nil {
 			return 0, err
 		}
@@ -320,10 +347,7 @@ func GetRowCountForPath(path string, options FileOptions) (int, error) {
 // Returns a Reader interface and a Closer interface for cleanup
 func GetReaderForPath(path string, options FileOptions) (interface{}, interface{}, error) {
 	if IsDirectory(path) {
-		info, err := DiscoverFiles(path, DirectoryDiscoveryOptions{
-			Pattern:  options.FilePattern,
-			MaxFiles: EffectiveDirectoryFileLimit(),
-		}, nil)
+		info, err := GetDirectorySnapshot(context.Background(), path, options, EffectiveDirectoryFileLimit(), nil)
 		if err != nil {
 			return nil, nil, err
 		}

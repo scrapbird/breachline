@@ -11,7 +11,7 @@ import * as SettingsAPI from "../wailsjs/go/settings/SettingsService";
 import * as LicenseAPI from "../wailsjs/go/app/LicenseService";
 // @ts-ignore - Wails generated bindings
 import * as WorkspaceManagerAPI from "../wailsjs/go/app/WorkspaceManager";
-import { EventsOn } from "../wailsjs/runtime";
+import { EventsOn, EventsOff } from "../wailsjs/runtime";
 import { useDialogState } from './hooks/useDialogState';
 import { useConsoleLogger, LogLevel } from './hooks/useConsoleLogger';
 import LogoUniversal from './assets/images/logo-universal.png';
@@ -41,6 +41,7 @@ import ShortcutsDialog from './components/dialogs/ShortcutsDialog';
 import MessageDialog from './components/dialogs/MessageDialog';
 import ErrorDialog from './components/ErrorDialog';
 import DirectoryHashWarningDialog from './components/DirectoryHashWarningDialog';
+import DirectoryOpenProgress, { OpenProgress } from './components/DirectoryOpenProgress';
 import LoadingOverlay from './components/dialogs/LoadingOverlay';
 import TimeHeader from './components/grid/TimeHeader';
 import RegularHeader from './components/grid/RegularHeader';
@@ -187,6 +188,11 @@ function App() {
     const [dirHashWarningPath, setDirHashWarningPath] = useState<string>('');
     const [dirHashWarningOptions, setDirHashWarningOptions] = useState<FileOptions | null>(null);
 
+    // Directory open progress. Non-null while a directory is being scanned, hashed
+    // or loaded; the overlay it drives is the only feedback the user gets during
+    // what can be several minutes of work on a large archive.
+    const [dirOpenProgress, setDirOpenProgress] = useState<OpenProgress | null>(null);
+
     // Query history
     const [queryHistory, setQueryHistory] = useState<string[]>([]);
 
@@ -204,6 +210,36 @@ function App() {
         setQueryHistory(next);
     };
 
+
+    // Listen for directory open progress. A single subscription lives here because
+    // Wails' EventsOff removes every listener registered for an event name, so the
+    // subscription cannot be split across components.
+    useEffect(() => {
+        EventsOn('directory:open:progress', (data: OpenProgress) => {
+            setDirOpenProgress(data);
+        });
+        EventsOn('directory:open:done', () => {
+            setDirOpenProgress(null);
+        });
+
+        return () => {
+            EventsOff('directory:open:progress');
+            EventsOff('directory:open:done');
+        };
+    }, []);
+
+    // Abandon an in-progress directory open.
+    const handleCancelDirectoryOpen = useCallback(async () => {
+        try {
+            // @ts-ignore - CancelDirectoryOpen available after Wails bindings regeneration
+            await AppAPI.CancelDirectoryOpen();
+            addLog('info', 'Cancelled directory open');
+        } catch (err: any) {
+            addLog('error', `Failed to cancel directory open: ${err?.message || err}`);
+        } finally {
+            setDirOpenProgress(null);
+        }
+    }, []);
 
     // Listen for histogram ready events from async generation
     useEffect(() => {
@@ -288,6 +324,8 @@ function App() {
                         timestamp_display_format: s.timestamp_display_format ?? 'yyyy-MM-dd HH:mm:ss',
                         pin_timestamp_column: s.pin_timestamp_column ?? false,
                         max_directory_files: s.max_directory_files ?? 0,
+                        directory_schema_sample_files: s.directory_schema_sample_files ?? 25,
+                        directory_content_hash: s.directory_content_hash ?? false,
                         enable_plugins: s.enable_plugins ?? false,
                         mcp_server_enabled: s.mcp_server_enabled ?? false,
                         mcp_server_address: s.mcp_server_address ?? '127.0.0.1:8765',
@@ -1667,6 +1705,28 @@ function App() {
                     );
                 }
 
+                // Warn if loading this directory is projected to need more memory than
+                // the machine has. The whole dataset is held in memory once loaded, and
+                // for a compressed archive the on-disk size understates that by an order
+                // of magnitude, so this is the difference between a slow load and one
+                // that exhausts memory without ever finishing.
+                if ((response as any).memoryWarning) {
+                    addLog('warn', (response as any).memoryWarning);
+                    showMessageDialogAction(
+                        'Large dataset',
+                        `${(response as any).memoryWarning}\n\nIf the load does not complete, narrow the file pattern to fewer files, split the directory into smaller ones, or set "Maximum files when opening directory" in Settings.`,
+                        true
+                    );
+                }
+
+                // Note when the column list came from a sample of the files. Columns
+                // unique to unsampled files are still loaded, so this is informational
+                // rather than a warning.
+                if ((response as any).sampledSchema) {
+                    const sampled = (response as any).schemaSampled || 0;
+                    addLog('info', `Columns read from ${sampled} of ${response.filesLoaded || 0} files. Columns found only in other files are added as those files load.`);
+                }
+
                 // Add detected file type from backend response
                 if (response.detectedFileType) {
                     fileOpts.detectedFileType = response.detectedFileType;
@@ -2541,6 +2601,13 @@ function App() {
                 isOpen={showErrorDialog}
                 message={errorDialogMessage}
                 onClose={() => setShowErrorDialog(false)}
+            />
+
+            {/* Directory open progress. Scanning, hashing and loading a large archive
+                runs for minutes, so it reports its phase and offers a way out. */}
+            <DirectoryOpenProgress
+                progress={dirOpenProgress}
+                onCancel={handleCancelDirectoryOpen}
             />
 
             {/* Directory hash warning dialog */}

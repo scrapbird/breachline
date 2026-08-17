@@ -39,6 +39,16 @@ type Settings struct {
 	WindowHeight int `yaml:"window_height,omitempty" json:"window_height,omitempty"`
 	// Maximum number of files when opening a directory as a virtual file
 	MaxDirectoryFiles int `yaml:"max_directory_files" json:"max_directory_files"`
+	// Number of member files read when resolving a directory's column schema.
+	// Reading every member means fully parsing the whole dataset before a single
+	// row is shown, which for a large archive of compressed JSON costs minutes.
+	// Columns found only in unsampled files are still loaded: the union header
+	// grows as those files are read. 0 means read every file.
+	DirectorySchemaSampleFiles int `yaml:"directory_schema_sample_files" json:"directory_schema_sample_files"`
+	// Hash the contents of every file when identifying a directory, instead of
+	// hashing file paths, sizes and modification times. Byte-exact but requires
+	// reading the entire directory, which is slow for large archives.
+	DirectoryContentHash bool `yaml:"directory_content_hash" json:"directory_content_hash"`
 	// Plugin loader settings
 	EnablePlugins bool           `yaml:"enable_plugins" json:"enable_plugins"`
 	Plugins       []PluginConfig `yaml:"plugins,omitempty" json:"plugins,omitempty"`
@@ -59,6 +69,17 @@ func (s Settings) DirectoryFileLimit() int {
 		return defaultSettings.MaxDirectoryFiles
 	}
 	return s.MaxDirectoryFiles
+}
+
+// DirectorySchemaSample returns how many member files to read when resolving a
+// directory's schema: 0 means read every file, a positive value samples that many
+// spread across the directory. A negative (invalid) value falls back to the
+// built-in default.
+func (s Settings) DirectorySchemaSample() int {
+	if s.DirectorySchemaSampleFiles < 0 {
+		return defaultSettings.DirectorySchemaSampleFiles
+	}
+	return s.DirectorySchemaSampleFiles
 }
 
 // CacheManager interface defines methods that SettingsService needs for cache management
@@ -92,8 +113,17 @@ var defaultSettings = Settings{
 	WindowWidth:  1024,
 	WindowHeight: 768,
 	// Default max files when opening a directory: 0 means unlimited (load every
-	// matching file). Users can set a positive cap in Settings if needed.
+	// matching file). Users can set a positive cap in Settings if needed. It stays
+	// unlimited by default because silently loading part of a dataset is worse than
+	// a slow load; oversized directories are warned about instead.
 	MaxDirectoryFiles: 0,
+	// Read 25 members when resolving a directory's schema. Unsampled files can
+	// still contribute columns as they are read, so this trades a complete
+	// up-front column list for a directory open that does not have to parse the
+	// entire dataset first.
+	DirectorySchemaSampleFiles: 25,
+	// Hash directory metadata rather than file contents by default.
+	DirectoryContentHash: false,
 	// Plugin support disabled by default
 	EnablePlugins: false,
 	Plugins:       []PluginConfig{},

@@ -93,7 +93,7 @@
 
 - [x] XLSX: add Row/header caching (like JSON) so header + data don't each re-parse the whole workbook; currently header, count, and data each do a full `excelize.OpenFile` + `GetRows`, ~4 full parses per open
 - [x] Directory: dedupe per-file header reads; union header is read at open, again in `NewDirectoryReader`, and again per-file in `DirectoryReader.Read` (3x/file, and each is a full parse for XLSX/JSON members). Reuse the union header instead of re-reading
-- [ ] Add a decompression cache (or single-decompress path) so compressed CSV/XLSX don't inflate the whole file on both the header and data dispatch
+- [ ] Add a decompression cache (or single-decompress path) so compressed CSV don't inflate the whole file on both the header and data dispatch. Compressed JSON and XLSX no longer do: `proxy.go` dispatches on file type before compression, so they route through the Row-based base-data cache and inflate once
 - [x] Avoid the separate 6-byte magic-byte peek (`DetectCompressionByMagic`) on every dispatcher call for files without a compression extension; detect once at open and reuse
 - [x] Share the header already read at open with the first-load `FileReader` so CSV/XLSX don't re-read the header (open uses one reader instance, first query another)
 
@@ -105,8 +105,9 @@
 
 ## Large File Improvements
 
+- [x] Directory loads: collapse the five full decompress-and-parse passes over a directory into one (snapshot cache for discovery plus schema, sampled schema resolution, metadata hashing, rows-native member reads, parallel loading), and warn when a load is projected to exceed available memory. See [doc/plans/speed-up-dir-loads.md](plans/speed-up-dir-loads.md)
 - [x] Disable default timestamp sorting to fix large file loading performance
 - [x] Implement chunked growth strategy for row allocation
-- [ ] Add progress indicators for large file operations with cancellation support
+- [x] Add progress indicators for large file operations with cancellation support. Directory loads report `discovering`/`hashing`/`schema`/`loading` phases through `directory:open:progress` and are cancellable via `CancelDirectoryOpen`; single-file loads still have neither
 - [x] Implement lazy loading architecture with virtual scrolling and on-demand row loading
 - [ ] Implement file format optimization (Parquet/Arrow) with pre-built sorted indices

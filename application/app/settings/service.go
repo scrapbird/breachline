@@ -315,6 +315,19 @@ func (s *SettingsService) SaveSettings(in Settings) error {
 		data["max_directory_files"] = maxDirFiles
 	}
 
+	// Save directory schema sample size if different from default. 0 means read
+	// every member file; any positive value samples that many. Negatives are
+	// invalid and left unpersisted (falling back to the default on load).
+	schemaSample := in.DirectorySchemaSampleFiles
+	if schemaSample != defaultSettings.DirectorySchemaSampleFiles && schemaSample >= 0 {
+		data["directory_schema_sample_files"] = schemaSample
+	}
+
+	// Save directory content hashing if different from default.
+	if in.DirectoryContentHash != defaultSettings.DirectoryContentHash {
+		data["directory_content_hash"] = in.DirectoryContentHash
+	}
+
 	// Save plugin settings if different from default
 	if in.EnablePlugins != defaultSettings.EnablePlugins {
 		data["enable_plugins"] = in.EnablePlugins
@@ -443,6 +456,16 @@ func (s *SettingsService) ClearSyncTokens() error {
 	// Preserve max directory files setting (0 = unlimited; any positive value is a cap)
 	if settings.MaxDirectoryFiles != defaultSettings.MaxDirectoryFiles && settings.MaxDirectoryFiles >= 0 {
 		data["max_directory_files"] = settings.MaxDirectoryFiles
+	}
+
+	// Preserve directory schema sample size (0 = read every member file)
+	if settings.DirectorySchemaSampleFiles != defaultSettings.DirectorySchemaSampleFiles && settings.DirectorySchemaSampleFiles >= 0 {
+		data["directory_schema_sample_files"] = settings.DirectorySchemaSampleFiles
+	}
+
+	// Preserve directory content hashing
+	if settings.DirectoryContentHash != defaultSettings.DirectoryContentHash {
+		data["directory_content_hash"] = settings.DirectoryContentHash
 	}
 
 	// Preserve plugin settings

@@ -12,6 +12,8 @@ export interface AppSettings {
     timestamp_display_format: string;
     pin_timestamp_column: boolean;
     max_directory_files: number;
+    directory_schema_sample_files: number;
+    directory_content_hash: boolean;
     enable_plugins: boolean;
     mcp_server_enabled: boolean;
     mcp_server_address: string;
@@ -27,6 +29,8 @@ export const defaultSettings: AppSettings = {
     timestamp_display_format: 'yyyy-MM-dd HH:mm:ss',
     pin_timestamp_column: false,
     max_directory_files: 500,
+    directory_schema_sample_files: 25,
+    directory_content_hash: false,
     enable_plugins: false,
     mcp_server_enabled: false,
     mcp_server_address: '127.0.0.1:8765',
@@ -96,6 +100,8 @@ export function useSettingsHandlers({
                 timestamp_display_format: settings.timestamp_display_format,
                 pin_timestamp_column: settings.pin_timestamp_column,
                 max_directory_files: settings.max_directory_files,
+                directory_schema_sample_files: settings.directory_schema_sample_files,
+                directory_content_hash: settings.directory_content_hash,
                 enable_plugins: settings.enable_plugins,
                 mcp_server_enabled: settings.mcp_server_enabled,
                 mcp_server_address: settings.mcp_server_address,

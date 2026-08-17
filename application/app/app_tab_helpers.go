@@ -4,6 +4,7 @@ import (
 	"breachline/app/fileloader"
 	"breachline/app/settings"
 	"breachline/app/timestamps"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"os"
@@ -68,22 +69,23 @@ func (a *App) getDirectoryReaderForTab(tab *FileTab) (*fileloader.DirectoryReade
 	currentSettings := settings.GetEffectiveSettings()
 	maxFiles := currentSettings.DirectoryFileLimit()
 
-	// Discover files
-	info, err := fileloader.DiscoverFiles(tab.FilePath, fileloader.DirectoryDiscoveryOptions{
-		Pattern:  tab.Options.FilePattern,
-		MaxFiles: maxFiles,
-	}, nil)
+	options := fileloader.FileOptions{
+		JPath:                  tab.Options.JPath,
+		NoHeaderRow:            tab.Options.NoHeaderRow,
+		IncludeSourceColumn:    tab.Options.IncludeSourceColumn,
+		IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
+		FilePattern:            tab.Options.FilePattern,
+	}
+
+	// Reuse the snapshot captured when the tab was opened, so this does not rescan
+	// the directory and re-resolve every member's schema.
+	info, err := fileloader.GetDirectorySnapshot(context.Background(), tab.FilePath, options, maxFiles, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create reader
-	return fileloader.NewDirectoryReader(info, fileloader.FileOptions{
-		JPath:                  tab.Options.JPath,
-		NoHeaderRow:            tab.Options.NoHeaderRow,
-		IncludeSourceColumn:    tab.Options.IncludeSourceColumn,
-		IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
-	})
+	return fileloader.NewDirectoryReader(info, options)
 }
 
 // materializeQueryRowsForTab computes and returns the full set of rows that match the provided query

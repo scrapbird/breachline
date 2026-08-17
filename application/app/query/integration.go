@@ -299,15 +299,19 @@ func (qe *QueryExecutor) ExecuteQuery(ctx context.Context, tab *FileTab, query s
 		// Cache the base file data for future queries
 		if qe.cache != nil && qe.cacheConfig.EnablePipelineCache && len(inputResult.Rows) > 0 {
 			// Store base file data in cache with pre-parsed timestamps and timestamp stats
-			// For JSON and uncompressed XLSX files: rows are shared pointers to
+			// For JSON and XLSX files, compressed or not: rows are shared pointers to
 			// baseDataStorage entries (sharedFromBaseData=true), so size accounting must
 			// not double-count them.
-			// For CSV (and compressed XLSX, which DetectFileType reports as CSV): this IS
-			// the authoritative data copy (sharedFromBaseData=false).
-			// DetectFileType is extension-based, so it returns FileTypeXLSX only for the
-			// uncompressed .xlsx path that loads via loadXLSXRowsWithCaching (shared).
-			fileType := fileloader.DetectFileType(tab.FilePath)
-			sharedFromBaseData := (fileType == fileloader.FileTypeJSON || fileType == fileloader.FileTypeXLSX)
+			// For CSV and plugin files: this IS the authoritative data copy
+			// (sharedFromBaseData=false).
+			// Detection must see through compression here: a .json.gz now loads via the
+			// Row-based cache like any other JSON, so reporting it as an unshared copy
+			// would double-count the whole dataset against the cache size limit.
+			// Directory tabs are never shared: their rows are built by the directory
+			// loader, not handed out by the base-data cache.
+			fileType := fileloader.DetectFileTypeForPath(tab.FilePath)
+			sharedFromBaseData := !tab.Options.IsDirectory &&
+				(fileType == fileloader.FileTypeJSON || fileType == fileloader.FileTypeXLSX)
 			qe.cache.StoreWithMetadata(baseFileCacheKey, inputResult.OriginalHeader, inputResult.Header, inputResult.DisplayColumns, inputResult.Rows, inputResult.TimestampStats, sharedFromBaseData)
 		}
 	}

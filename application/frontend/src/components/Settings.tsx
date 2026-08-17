@@ -15,6 +15,8 @@ interface SettingsProps {
         timestamp_display_format: string;
         pin_timestamp_column: boolean;
         max_directory_files: number;
+        directory_schema_sample_files: number;
+        directory_content_hash: boolean;
         enable_plugins: boolean;
         mcp_server_enabled: boolean;
         mcp_server_address: string;
@@ -39,6 +41,7 @@ const Settings: React.FC<SettingsProps> = ({
     // Local state for cache size input to allow smooth editing
     const [cacheSizeInput, setCacheSizeInput] = useState<string>(settings.cache_size_limit_mb.toString());
     const [maxDirFilesInput, setMaxDirFilesInput] = useState<string>(settings.max_directory_files.toString());
+    const [schemaSampleInput, setSchemaSampleInput] = useState<string>((settings.directory_schema_sample_files ?? 25).toString());
 
     // Sync local inputs with settings
     useEffect(() => {
@@ -48,6 +51,10 @@ const Settings: React.FC<SettingsProps> = ({
     useEffect(() => {
         setMaxDirFilesInput(settings.max_directory_files.toString());
     }, [settings.max_directory_files]);
+
+    useEffect(() => {
+        setSchemaSampleInput((settings.directory_schema_sample_files ?? 25).toString());
+    }, [settings.directory_schema_sample_files]);
 
     // Handle Escape key to close settings modal
     useEffect(() => {
@@ -241,6 +248,61 @@ const Settings: React.FC<SettingsProps> = ({
                             />
                             <div style={{ fontSize: 11, opacity: 0.65, textAlign: 'left' }}>
                                 Maximum number of files to load when opening a directory as a virtual file. Set to 0 for unlimited (loads every matching file; may be slow and memory-heavy for very large directories).
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: 13, opacity: 0.85, textAlign: 'left' }}>Files sampled for directory columns</div>
+                            <input
+                                type="number"
+                                min="0"
+                                max="10000"
+                                step="5"
+                                value={schemaSampleInput}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setSchemaSampleInput(value);
+
+                                    // 0 means read every file; any positive number samples that many.
+                                    const numValue = parseInt(value);
+                                    if (!isNaN(numValue) && numValue >= 0) {
+                                        onSettingsChange(s => ({ ...s, directory_schema_sample_files: numValue }));
+                                    }
+                                }}
+                                onBlur={(e) => {
+                                    const value = parseInt(e.target.value);
+                                    if (isNaN(value) || value < 0) {
+                                        setSchemaSampleInput('25');
+                                        onSettingsChange(s => ({ ...s, directory_schema_sample_files: 25 }));
+                                    }
+                                }}
+                                style={{
+                                    padding: '6px 8px',
+                                    border: '1px solid #444',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#2a2a2a',
+                                    color: '#fff',
+                                    fontSize: '13px',
+                                    width: '100px'
+                                }}
+                            />
+                            <div style={{ fontSize: 11, opacity: 0.65, textAlign: 'left' }}>
+                                How many files to read when working out a directory's columns. Reading every file means parsing the whole dataset before anything is shown. Columns found only in unsampled files are still loaded, they just appear once those files are read. Set to 0 to read every file.
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, textAlign: 'left' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={!!settings.directory_content_hash}
+                                    onChange={(e) => onSettingsChange(s => ({ ...s, directory_content_hash: e.target.checked }))}
+                                    style={{ marginTop: '2px' }}
+                                />
+                                <span>Identify directories by file contents</span>
+                            </label>
+                            <div style={{ fontSize: 11, opacity: 0.65, textAlign: 'left' }}>
+                                Hash the contents of every file to identify a directory, instead of file paths, sizes and modification times. Byte-exact, but requires reading the entire directory every time it is opened or relocated.
                             </div>
                         </div>
                     </div>

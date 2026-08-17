@@ -12,6 +12,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/ulikunitz/xz v0.5.15
 	github.com/wailsapp/wails/v2 v2.10.2
+	golang.org/x/sys v0.41.0
 )
 
 require (
@@ -85,6 +86,5 @@ require (
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 )

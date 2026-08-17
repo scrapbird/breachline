@@ -52,6 +52,13 @@ type App struct {
 	// locate files cancellation support
 	locateCancelFunc context.CancelFunc
 	locateCancelMu   sync.Mutex
+
+	// directory open cancellation support. Opening a large directory scans, hashes
+	// and resolves the schema of every member, which can run for minutes, so the
+	// user needs a way out of it.
+	dirOpenCancelFunc context.CancelFunc
+	dirOpenGeneration int64
+	dirOpenCancelMu   sync.Mutex
 }
 
 // NewApp creates a new App application struct
@@ -387,6 +394,32 @@ func (a *App) SetTabJPath(tabID string, expression string) error {
 	return nil
 }
 
+// installLoaderProviders gives the fileloader package access to the settings that
+// govern how much work a load does. They are injected as callbacks rather than
+// imported so fileloader does not depend on the settings package.
+func installLoaderProviders() {
+	// Honour the "maximum files when opening a directory" setting on the data-load
+	// path too, so the rows read match the files discovered and hashed at open time
+	// instead of silently loading every matching file.
+	fileloader.SetDirectoryFileLimitProvider(func() int {
+		return settings.GetEffectiveSettings().DirectoryFileLimit()
+	})
+
+	// How many member files to read when resolving a directory's column schema.
+	// Reading every member means parsing the whole dataset before a single row is
+	// shown; columns unique to unsampled files are still picked up as those files
+	// are read, so this only trades a complete up-front column list for speed.
+	fileloader.SetDirectorySchemaSampleProvider(func() int {
+		return settings.GetEffectiveSettings().DirectorySchemaSample()
+	})
+
+	// Whether directory identity is derived from file contents (byte-exact but
+	// requires reading the whole directory) or from path, size and mtime.
+	fileloader.SetDirectoryContentHashProvider(func() bool {
+		return settings.GetEffectiveSettings().DirectoryContentHash
+	})
+}
+
 // Startup is called when the app starts. The context is saved
 // so we can call the runtime methods
 func (a *App) Startup(ctx context.Context) {
@@ -400,12 +433,7 @@ func (a *App) Startup(ctx context.Context) {
 		fileloader.SetJSONCache(a.queryCache)
 	}
 
-	// Honour the "maximum files when opening a directory" setting on the data-load
-	// path too, so the rows read match the files discovered and hashed at open time
-	// instead of silently loading every matching file.
-	fileloader.SetDirectoryFileLimitProvider(func() int {
-		return settings.GetEffectiveSettings().DirectoryFileLimit()
-	})
+	installLoaderProviders()
 
 	// Initialize plugin service
 	a.pluginService = plugin.NewPluginService(settings.NewSettingsService(), a)
@@ -898,9 +926,11 @@ func (a *App) AddFileToWorkspace(filePath string, opts interfaces.FileOptions) e
 			return fmt.Errorf("failed to discover directory files: %w", err)
 		}
 
-		// FileHash computed from directory content
-		// We use nil for progress callback here as this is a synchronous add
-		fileHash, err := fileloader.CalculateDirectoryHash(info)
+		// FileHash identifying the directory. resolveDirectoryHash prefers a hash
+		// this directory is already recorded under in the workspace, so adding a
+		// directory that an older version stored under a content hash updates that
+		// entry instead of creating a second one its annotations are not attached to.
+		fileHash, err := a.resolveDirectoryHash(context.Background(), info, opts)
 		if err != nil {
 			return fmt.Errorf("failed to calculate directory hash: %w", err)
 		}
@@ -1465,7 +1495,16 @@ func (a *App) processDirectoryForMatch(dirPath string, wsDirFile interfaces.Work
 
 	// Check if this directory hash matches the workspace directory file
 	if dirHash != wsDirFile.FileHash {
-		return nil, nil // No match
+		// The workspace entry may have been recorded before directory identity moved
+		// from file contents to file metadata. Fall back to the content hash so
+		// relocating a directory stored by an older version still finds it. This is
+		// the slow path and only runs for candidates the fast hash rejected.
+		legacyHash, legacyErr := fileloader.CalculateDirectoryContentHash(context.Background(), info, nil)
+		if legacyErr != nil || legacyHash != wsDirFile.FileHash {
+			return nil, nil // No match
+		}
+		a.Log("info", fmt.Sprintf("[LOCATE_FILES] Directory %s matches on its stored content hash (recorded before metadata hashing)", dirPath))
+		dirHash = legacyHash
 	}
 
 	// Directory matches! Return the match info

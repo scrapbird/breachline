@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"breachline/app/fileloader"
 	"breachline/app/query"
 	"breachline/app/settings"
 	"breachline/app/timestamps"
@@ -165,14 +166,33 @@ func (a *App) executeQueryStreamingOptimized(tab *FileTab, queryString string, t
 		if message != "" {
 			a.Log("debug", fmt.Sprintf("[QUERY_PROGRESS] %s - %s: %d/%d", stage, message, current, total))
 		}
+
+		// Reading a directory's rows is the longest part of opening one and happens
+		// inside the first query, so its phases are forwarded to the same event the
+		// open overlay listens on. Without this the overlay disappears at the end of
+		// the scan and the user sees nothing for the whole load.
+		if tab.Options.IsDirectory {
+			switch stage {
+			case fileloader.PhaseDiscovering, fileloader.PhaseSchema, fileloader.PhaseLoading:
+				a.emitDirectoryOpenProgress(fileloader.LoadProgress{
+					Phase:   stage,
+					Current: current,
+					Total:   total,
+					Message: message,
+				})
+			}
+		}
 	}
 
-	// Convert FileTab to query package format
+	// Convert FileTab to query package format. Headers carry across so the reader
+	// reuses the header captured at open instead of resolving the file's schema
+	// again, which for a directory means re-reading every member it sampled.
 	queryTab := &query.FileTab{
 		ID:       tab.ID,
 		FilePath: tab.FilePath,
 		FileHash: tab.FileHash,
 		Options:  tab.Options,
+		Headers:  tab.Headers,
 	}
 
 	// Get cache config from settings first

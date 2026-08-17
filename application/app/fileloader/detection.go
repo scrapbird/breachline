@@ -29,6 +29,32 @@ var (
 	detectionCache   = make(map[string]detectionCacheEntry)
 )
 
+// fileParseObserver is nil in normal operation. Formats that are parsed whole
+// (JSON, XLSX) report each parse through it, so a test can assert that a directory
+// load parses each member once rather than once per caller that asks for a header.
+// That property is the entire reason for the snapshot cache and the Row-based
+// base-data caches, and it is invisible in output, so nothing else would catch its
+// regression.
+//
+// It may be called from worker goroutines; implementations must be safe for
+// concurrent use.
+var fileParseObserver func(filePath string)
+
+// setFileParseObserver installs the observer and returns a function restoring the
+// previous one.
+func setFileParseObserver(f func(filePath string)) func() {
+	previous := fileParseObserver
+	fileParseObserver = f
+	return func() { fileParseObserver = previous }
+}
+
+// notifyFileParse reports that a file is about to be read and parsed in full.
+func notifyFileParse(filePath string) {
+	if observer := fileParseObserver; observer != nil {
+		observer(filePath)
+	}
+}
+
 // detectFileTypeAndCompressionCached returns the detected (FileType, CompressionType)
 // pair for a file, using a memoization cache keyed by absolute path and guarded by the
 // file's mtime + size. On a cache miss (or a stat mismatch indicating the file changed)

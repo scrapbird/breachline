@@ -103,6 +103,18 @@ func GetEffectiveSettings() Settings {
 			settings.MaxDirectoryFiles = vi
 		}
 	}
+	if v, ok := m["directory_schema_sample_files"]; ok {
+		// 0 means read every member file; any positive value samples that many.
+		// Negatives are ignored.
+		if vi, oki := v.(int); oki && vi >= 0 {
+			settings.DirectorySchemaSampleFiles = vi
+		}
+	}
+	if v, ok := m["directory_content_hash"]; ok {
+		if vb, okb := v.(bool); okb {
+			settings.DirectoryContentHash = vb
+		}
+	}
 	if v, ok := m["enable_plugins"]; ok {
 		if vb, okb := v.(bool); okb {
 			settings.EnablePlugins = vb

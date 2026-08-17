@@ -124,6 +124,8 @@ func readXLSXAllRows(filePath string) ([][]string, error) {
 		return nil, fmt.Errorf("file path is empty")
 	}
 
+	notifyFileParse(filePath)
+
 	// Detect compression so compressed workbooks are decompressed before parsing.
 	_, compression := detectFileTypeAndCompressionCached(filePath)
 

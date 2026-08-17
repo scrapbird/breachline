@@ -59,6 +59,8 @@ func parseJSONFile(filePath string) (interface{}, error) {
 		return nil, fmt.Errorf("file path is empty")
 	}
 
+	notifyFileParse(filePath)
+
 	// Detect if the file is compressed
 	_, compression := detectFileTypeAndCompressionCached(filePath)
 
@@ -70,6 +72,13 @@ func parseJSONFile(filePath string) (interface{}, error) {
 		result, decompressErr := DecompressFile(filePath, compression)
 		if decompressErr != nil {
 			return nil, fmt.Errorf("failed to decompress file: %w", decompressErr)
+		}
+		// Preserve the partial-decompression warning. The dispatcher in proxy.go
+		// records it when it decompresses itself; compressed JSON now decompresses
+		// here instead (so it can go through the Row cache), so the warning has to
+		// be recorded here or it would be silently dropped.
+		if result.Warning != "" {
+			SetDecompressionWarning(filePath, result.Warning)
 		}
 		data = result.Data
 	} else {
