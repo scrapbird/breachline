@@ -144,12 +144,20 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 	// read below parses the entire file, which for a large one is the whole wait,
 	// so without this the UI can only spin. The sink is registered per path and torn
 	// down here, so member files of a directory load never report through it.
+	//
+	// On success the sequence is deliberately left open: the rows are read by the
+	// first query on the new tab, which reports the rest of the phases and closes the
+	// sequence itself. Ending it here would take the progress dialog down partway
+	// through the load and leave the longest part of the wait showing a bare spinner.
+	loadContinues := false
 	fileloader.SetFileProgressCallback(filePath, func(progress fileloader.LoadProgress) {
 		a.emitLoadProgress(loadKindFile, progress)
 	})
 	defer func() {
 		fileloader.ClearFileProgressCallback(filePath)
-		a.emitDirectoryOpenDone()
+		if !loadContinues {
+			a.emitDirectoryOpenDone()
+		}
 	}()
 
 	// Read headers for the tab
@@ -175,6 +183,9 @@ func (a *App) OpenFileTabWithOptions(filePath string, opts interfaces.FileOption
 
 	// Check for any decompression warning from compressed file loading
 	decompressionWarning := fileloader.GetDecompressionWarning(filePath)
+
+	// The first query on this tab carries on from here and closes out the sequence.
+	loadContinues = true
 
 	return &TabInfo{
 		ID:                     tabID,
@@ -1020,8 +1031,9 @@ func (a *App) PreviewDirectory(dirPath string, pattern string, jpath string) (*f
 	// The preview scans and samples the directory, which on a large archive is not
 	// instant, so it runs under the same cancellable context and progress reporting
 	// as an open and its snapshot is reused when the user goes on to open.
+	// Nothing follows a preview, so its progress sequence ends with it.
 	ctx, finish := a.beginDirectoryOpen()
-	defer finish()
+	defer finish(false)
 
 	return fileloader.PreviewDirectoryContext(ctx, dirPath, pattern, jpath, maxFiles, a.emitDirectoryOpenProgress)
 }
@@ -1042,7 +1054,13 @@ func (a *App) CancelDirectoryOpen() {
 
 // beginDirectoryOpen installs a fresh cancellable context for a directory open,
 // cancelling any open still running, and returns it with its cleanup function.
-func (a *App) beginDirectoryOpen() (context.Context, func()) {
+//
+// The cleanup takes whether the load carries on past this open. A successful open
+// has only discovered the files and resolved their columns; the rows are read by the
+// first query on the new tab, which reports the remaining phases and closes the
+// sequence itself. Closing it here would take the progress dialog down at the point
+// the real work starts.
+func (a *App) beginDirectoryOpen() (context.Context, func(loadContinues bool)) {
 	a.dirOpenCancelMu.Lock()
 	if a.dirOpenCancelFunc != nil {
 		a.dirOpenCancelFunc()
@@ -1053,7 +1071,7 @@ func (a *App) beginDirectoryOpen() (context.Context, func()) {
 	generation := a.dirOpenGeneration
 	a.dirOpenCancelMu.Unlock()
 
-	return ctx, func() {
+	return ctx, func(loadContinues bool) {
 		a.dirOpenCancelMu.Lock()
 		// Only surrender the slot if a later open has not already claimed it.
 		// Clearing unconditionally would drop a newer open's cancel function when
@@ -1064,10 +1082,13 @@ func (a *App) beginDirectoryOpen() (context.Context, func()) {
 		a.dirOpenCancelMu.Unlock()
 		cancel()
 
-		// Always close out the progress sequence. Emitting this from the deferred
-		// cleanup rather than the success path is what guarantees a cancelled or
-		// failed open still tells the frontend it is over.
-		a.emitDirectoryOpenDone()
+		// Close out the progress sequence unless the load continues into the first
+		// query. Emitting this from the deferred cleanup rather than the success path
+		// is what guarantees a cancelled or failed open still tells the frontend it
+		// is over.
+		if !loadContinues {
+			a.emitDirectoryOpenDone()
+		}
 	}
 }
 
@@ -1170,8 +1191,11 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 	// Ensure IsDirectory is set
 	opts.IsDirectory = true
 
+	// Left open on success: the first query on the new tab reads the rows and closes
+	// the sequence out.
+	loadContinues := false
 	ctx, finish := a.beginDirectoryOpen()
-	defer finish()
+	defer func() { finish(loadContinues) }()
 
 	// Get max files setting
 	currentSettings := settings.GetEffectiveSettings()
@@ -1184,13 +1208,7 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 	// Discover files and resolve the schema once. Every later consumer (the query
 	// pipeline's header lookup, timestamp column detection, the row load) reuses
 	// this same snapshot rather than rescanning and re-parsing every member file.
-	loadOptions := fileloader.FileOptions{
-		JPath:                  opts.JPath,
-		NoHeaderRow:            opts.NoHeaderRow,
-		IncludeSourceColumn:    opts.IncludeSourceColumn,
-		IngestTimezoneOverride: opts.IngestTimezoneOverride,
-		FilePattern:            opts.FilePattern,
-	}
+	loadOptions := directoryLoadOptions(opts)
 
 	info, err := fileloader.GetDirectorySnapshot(ctx, dirPath, loadOptions, maxFiles, a.emitDirectoryOpenProgress)
 	if err != nil {
@@ -1274,9 +1292,12 @@ func (a *App) OpenDirectoryTabWithOptions(dirPath string, opts interfaces.FileOp
 		a.Log("warn", fmt.Sprintf("[OPEN_DIR_TAB] %s", estimate.Warning))
 	}
 
-	// Emit completion event. The matching directory:open:done comes from the
-	// deferred cleanup installed by beginDirectoryOpen, so it fires on every exit
-	// path rather than only this one.
+	// The first query on this tab carries on from here and closes out the sequence.
+	loadContinues = true
+
+	// Emit completion event. The matching load:done comes from the query that reads
+	// the rows; on a cancelled or failed open it comes from the deferred cleanup
+	// installed by beginDirectoryOpen instead.
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, "directory:discovery:complete", map[string]interface{}{
 			"filesLoaded": len(info.Files),

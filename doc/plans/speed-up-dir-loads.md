@@ -123,6 +123,32 @@ Memory is now the binding constraint rather than CPU, which is what fix 7 (out o
 - **A test-only parse observer** (`fileParseObserver`, called from `parseJSONFile` and `readXLSXAllRows`) was added so "each member is parsed once per load" is directly assertable. It is the property the whole change exists to establish and is otherwise invisible in output.
 - **Available memory is read per OS without new dependencies** except promoting `golang.org/x/sys` from indirect to direct for the Darwin `sysctl` call. Linux parses `/proc/meminfo`, Windows calls `GlobalMemoryStatusEx` through `syscall`.
 
+### Follow-up: the snapshot was not actually being reused end to end
+
+The benchmarks above were taken inside `fileloader`. Measured later through the app on the real 145,780 file CloudTrail archive (631 MB), the same load took **38.4s**, not the ~6s the loader-level numbers predicted.
+
+Cause: the ingest timezone is part of the directory snapshot's cache key, because resolving a member's columns parses it and parsed rows are cached per timezone. `FileReader.loadRowsFromDirectory` resolves the timezone into its options before looking the snapshot up, but every app-layer caller built those options with the field left blank. The open therefore filed its snapshot under a key nothing else asked for, and the first query rescanned all 145,780 files and re-resolved every sampled member's columns.
+
+Fixed by resolving the timezone once, in a single `directoryLoadOptions` helper used by all three app-layer callers. Same archive, same rows (423,343) and columns (21):
+
+| | before | after |
+|---|---|---|
+| open | 886 ms | 842 ms |
+| first query | 37.5 s | 5.2 s |
+| total | 38.4 s | 6.0 s |
+| directory scans | 2 | 1 |
+
+`TestDirectoryOpenScansOnce` asserts the scan happens once across an open and its first query; it fails with 2 if the normalisation is removed.
+
+### Follow-up: progress covers the whole load
+
+Two further reports, both fixed:
+
+- The bar started near full, ran backwards, then forwards. Indeterminate phases were drawn as a full-width bar, and each phase carried its own 0-100% scale, so every handover reset it. One bar now spans the load, each phase owning a weighted slice of it behind a high-water clamp, and unmeasurable work sweeps a band across its own slice instead of filling the bar. On the archive above the raw phase numbers would have moved the bar backwards 294 times; the clamp shows none of them.
+- The bar finished quickly and a spinner took over for much longer. The open only scans and resolves columns (0.8s here); the rows are read by the first query (5.2s here, and minutes on a large archive), and the progress sequence was being closed at the end of the open. A successful open now leaves the sequence running and the query closes it, so the dialog covers all of it. `TestDirectoryProgressSequenceAlwaysCloses` and `TestSingleFileOpenReportsProgress` encode both halves.
+
+Whole-file reads also report now: `os.ReadFile` on a 297 MB JSON export was one syscall that reported nothing for 0.9s, so it is read in bounded chunks instead (72 progress ticks rather than 2).
+
 ### Verified
 
 - `go build ./...`, `go vet ./app/...`, `go test ./app/...` all green; `wails build -tags webkit2_41` succeeds; frontend `tsc --noEmit` and `vite build` clean.

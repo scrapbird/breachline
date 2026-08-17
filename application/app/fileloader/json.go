@@ -82,9 +82,10 @@ func parseJSONFile(filePath string) (interface{}, error) {
 		}
 		data = result.Data
 	} else {
-		// Read uncompressed file directly
-		reportFileProgress(filePath, PhaseReading, 0, -1, "Reading file")
-		data, err = os.ReadFile(filePath)
+		// Read uncompressed file directly. Measured against the file size rather
+		// than left indeterminate: an uncompressed export can be hundreds of
+		// megabytes, and that read is a visible wait before the parse starts.
+		data, err = readFileWithProgress(filePath)
 		if err != nil {
 			return nil, err
 		}

@@ -2,6 +2,7 @@ package app
 
 import (
 	"breachline/app/fileloader"
+	"breachline/app/interfaces"
 	"breachline/app/settings"
 	"breachline/app/timestamps"
 	"context"
@@ -11,6 +12,29 @@ import (
 )
 
 // Internal helper methods that operate on FileTab instances
+
+// directoryLoadOptions builds the loader options for a directory tab.
+//
+// The ingest timezone is resolved into the options rather than left blank. It forms
+// part of the directory snapshot's cache key, because resolving a member's columns
+// parses it and parsed rows are cached per timezone. The reader fills the timezone
+// in when it loads rows, so any caller that left it blank stored or looked up a
+// snapshot under a different key than the reader used, and the first query rescanned
+// the whole directory: on a 145,780 file archive an extra 0.8s and a second full
+// stat of every file, on top of re-resolving the sampled members' columns.
+func directoryLoadOptions(opts interfaces.FileOptions) fileloader.FileOptions {
+	loadOptions := fileloader.FileOptions{
+		JPath:                  opts.JPath,
+		NoHeaderRow:            opts.NoHeaderRow,
+		IncludeSourceColumn:    opts.IncludeSourceColumn,
+		IngestTimezoneOverride: opts.IngestTimezoneOverride,
+		FilePattern:            opts.FilePattern,
+	}
+	if loadOptions.IngestTimezoneOverride == "" {
+		loadOptions.IngestTimezoneOverride = timestamps.GetIngestTimezoneWithOverride(opts.IngestTimezoneOverride).String()
+	}
+	return loadOptions
+}
 
 // readHeaderForTab reads the header for a specific tab (supports CSV, XLSX, JSON, and directories)
 // Uses the tab's NoHeaderRow setting to determine how to parse headers
@@ -30,9 +54,10 @@ func (a *App) readHeaderForTab(tab *FileTab) ([]string, error) {
 	// Get effective ingest timezone - IMPORTANT: pass this to ensure consistent cache keys
 	ingestTz := timestamps.GetIngestTimezoneWithOverride(tab.Options.IngestTimezoneOverride)
 
-	// Handle directory tabs
+	// Handle directory tabs. These address the shared snapshot, so they need the
+	// timezone resolved into the options; a plain file takes it as an argument.
 	if tab.Options.IsDirectory {
-		return fileloader.ReadHeaderForPath(tab.FilePath, options, ingestTz)
+		return fileloader.ReadHeaderForPath(tab.FilePath, directoryLoadOptions(tab.Options), ingestTz)
 	}
 
 	// Use proxy function that handles all file types with options
@@ -69,13 +94,7 @@ func (a *App) getDirectoryReaderForTab(tab *FileTab) (*fileloader.DirectoryReade
 	currentSettings := settings.GetEffectiveSettings()
 	maxFiles := currentSettings.DirectoryFileLimit()
 
-	options := fileloader.FileOptions{
-		JPath:                  tab.Options.JPath,
-		NoHeaderRow:            tab.Options.NoHeaderRow,
-		IncludeSourceColumn:    tab.Options.IncludeSourceColumn,
-		IngestTimezoneOverride: tab.Options.IngestTimezoneOverride,
-		FilePattern:            tab.Options.FilePattern,
-	}
+	options := directoryLoadOptions(tab.Options)
 
 	// Reuse the snapshot captured when the tab was opened, so this does not rescan
 	// the directory and re-resolve every member's schema.

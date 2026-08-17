@@ -194,6 +194,12 @@ function App() {
     // dirOpenProgress only carries the phase text shown inside it.
     const [dirOpenActive, setDirOpenActive] = useState<boolean>(false);
     const [dirOpenProgress, setDirOpenProgress] = useState<OpenProgress | null>(null);
+    // Whether a load sequence is still running. Opening a file or directory only
+    // resolves its columns; the rows are read by the first query on the new tab,
+    // which is the longest part of the wait and finishes long after the open call
+    // returns. Tracking the sequence rather than the call is what keeps the progress
+    // dialog up for that part instead of handing over to a bare spinner.
+    const [loadInFlight, setLoadInFlight] = useState<boolean>(false);
 
     // Query history
     const [queryHistory, setQueryHistory] = useState<string[]>([]);
@@ -219,9 +225,11 @@ function App() {
     useEffect(() => {
         EventsOn('load:progress', (data: OpenProgress) => {
             setDirOpenProgress(data);
+            setLoadInFlight(true);
         });
         EventsOn('load:done', () => {
             setDirOpenProgress(null);
+            setLoadInFlight(false);
         });
 
         return () => {
@@ -241,6 +249,7 @@ function App() {
         } finally {
             setDirOpenProgress(null);
             setDirOpenActive(false);
+            setLoadInFlight(false);
         }
     }, []);
 
@@ -1778,8 +1787,10 @@ function App() {
                 setShowErrorDialog(true);
             } finally {
                 setIsOpeningFile(false);
+                // Only the open call is over here. The phase text is left alone and the
+                // dialog stays up on loadInFlight until the backend reports the whole
+                // sequence done, which is after the first query has read the rows.
                 setDirOpenActive(false);
-                setDirOpenProgress(null);
             }
             return;
         }
@@ -2613,10 +2624,12 @@ function App() {
                 onClose={() => setShowErrorDialog(false)}
             />
 
-            {/* Directory open progress. Scanning, hashing and loading a large archive
-                runs for minutes, so it reports its phase and offers a way out. */}
+            {/* Load progress. Scanning, hashing and loading a large archive runs for
+                minutes, so it reports its phase and offers a way out. It stays up for
+                the whole sequence: the open call, then the first query that reads the
+                rows, which the backend closes out with load:done. */}
             <DirectoryOpenProgress
-                show={dirOpenActive || isOpeningFile}
+                show={dirOpenActive || isOpeningFile || loadInFlight}
                 progress={dirOpenProgress}
                 onCancel={handleCancelDirectoryOpen}
                 cancellable={dirOpenActive}

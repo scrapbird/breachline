@@ -250,6 +250,14 @@ func reportedPhases(events []recordedEvent, kind string) []string {
 func assertProgressSequencesClosed(t *testing.T, events []recordedEvent) {
 	t.Helper()
 
+	if progressSequenceOpen(events) {
+		t.Fatalf("progress sequence never closed; events: %v", eventNames(events))
+	}
+}
+
+// progressSequenceOpen reports whether progress has been sent with no done event
+// after it, meaning the frontend still has the progress dialog on screen.
+func progressSequenceOpen(events []recordedEvent) bool {
 	open := false
 	for _, e := range eventNames(events) {
 		switch e {
@@ -259,9 +267,7 @@ func assertProgressSequencesClosed(t *testing.T, events []recordedEvent) {
 			open = false
 		}
 	}
-	if open {
-		t.Fatalf("progress sequence never closed; events: %v", eventNames(events))
-	}
+	return open
 }
 
 // TestDirectoryProgressSequenceAlwaysCloses covers the reported bug: the rows of a
@@ -286,14 +292,16 @@ func TestDirectoryProgressSequenceAlwaysCloses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenDirectoryTabWithOptions: %v", err)
 	}
-	assertProgressSequencesClosed(t, events())
 
-	afterOpen := eventNames(events())
-	if len(afterOpen) == 0 || afterOpen[len(afterOpen)-1] != loadDoneEvent {
-		t.Fatalf("open did not end with a done event; events: %v", afterOpen)
+	// A successful open deliberately leaves the sequence running: it has only
+	// scanned the directory and resolved the columns, and the rows are read by the
+	// query below. Closing it here handed the longest part of the load back to a
+	// bare spinner.
+	if !progressSequenceOpen(events()) {
+		t.Fatalf("open closed the sequence before the rows were read; events: %v", eventNames(events()))
 	}
 
-	// The load happens here. This is the sequence that used to be left open.
+	// The load happens here, and this is what closes the sequence out.
 	tab := a.GetActiveTab()
 	if tab == nil {
 		t.Fatal("no active tab")
@@ -309,6 +317,60 @@ func TestDirectoryProgressSequenceAlwaysCloses(t *testing.T) {
 	}
 
 	_ = info
+}
+
+// countPhaseRuns counts how many times a phase is entered, collapsing the run of
+// consecutive progress events that one pass through it produces.
+func countPhaseRuns(events []recordedEvent, phase string) int {
+	runs := 0
+	last := ""
+	for _, e := range events {
+		if e.name != loadProgressEvent {
+			continue
+		}
+		if e.phase == phase && last != phase {
+			runs++
+		}
+		last = e.phase
+	}
+	return runs
+}
+
+// TestDirectoryOpenScansOnce guards the snapshot captured by the open being the one
+// the first query reuses. The ingest timezone is part of the snapshot's cache key
+// and the reader resolves it before looking the snapshot up, so an open that left it
+// blank filed its snapshot under a key nothing else asked for: the first query
+// rescanned the whole directory and re-resolved every sampled member's columns.
+// On a 145,780 file archive that took the load from 6s to 38s.
+func TestDirectoryOpenScansOnce(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < 8; i++ {
+		writeGzipRecord(t, filepath.Join(dir, fmt.Sprintf("%03d.json.gz", i)), i)
+	}
+
+	a := newTestApp(t)
+	events := recordDirectoryEvents(t)
+
+	opts := interfaces.FileOptions{
+		FilePattern: "*.json.gz",
+		JPath:       "$.Records",
+	}
+	if _, err := a.OpenDirectoryTabWithOptions(dir, opts); err != nil {
+		t.Fatalf("OpenDirectoryTabWithOptions: %v", err)
+	}
+
+	tab := a.GetActiveTab()
+	if tab == nil {
+		t.Fatal("no active tab")
+	}
+	if _, _, err := a.ExecuteQueryForTab(tab, "filter *", ""); err != nil {
+		t.Fatalf("ExecuteQueryForTab: %v", err)
+	}
+
+	if runs := countPhaseRuns(events(), fileloader.PhaseDiscovering); runs != 1 {
+		t.Fatalf("directory scanned %d times over an open and its first query, want 1; phases: %v",
+			runs, reportedPhases(events(), loadKindDirectory))
+	}
 }
 
 // TestDirectoryProgressClosesOnFailedOpen verifies a failed open also takes the
@@ -382,10 +444,24 @@ func TestSingleFileOpenReportsProgress(t *testing.T) {
 		}
 	}
 
+	// As with a directory, the open leaves the sequence running and the first query
+	// on the tab closes it.
+	if !progressSequenceOpen(events()) {
+		t.Fatalf("file open closed the sequence before the first query; events: %v", eventNames(events()))
+	}
+
+	tab := a.GetActiveTab()
+	if tab == nil {
+		t.Fatal("no active tab")
+	}
+	if _, _, err := a.ExecuteQueryForTab(tab, "filter *", ""); err != nil {
+		t.Fatalf("ExecuteQueryForTab: %v", err)
+	}
+
 	assertProgressSequencesClosed(t, events())
 	seen := eventNames(events())
 	if len(seen) == 0 || seen[len(seen)-1] != loadDoneEvent {
-		t.Fatalf("file open did not end with a done event; events: %v", seen)
+		t.Fatalf("file load did not end with a done event; events: %v", seen)
 	}
 }
 
