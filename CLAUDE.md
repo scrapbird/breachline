@@ -49,7 +49,7 @@ The sync API backs workspace/annotation sync and license-gated auth. Its Go lamb
 
 ## Deploying infrastructure
 
-All infra (`infra/payment-api`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`, driven by a single committed `config.yml` (non-secret) + `secrets.vault.yml` (ansible-vault encrypted). Two environments coexist in the same AWS account, suffixed `-dev`/`-prod` on every resource name + tfstate key; `dev` uses the Stripe sandbox, `prod` the live Stripe API.
+All infra (`infra/account`, `infra/payment-api`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`, driven by a single committed `config.yml` (non-secret) + `secrets.vault.yml` (ansible-vault encrypted). Two environments coexist in the same AWS account, suffixed `-dev`/`-prod` on every resource name + tfstate key; `dev` uses the Stripe sandbox, `prod` the live Stripe API. Account-wide singletons shared by both envs (SES domain identity, API Gateway CloudWatch role) live in `infra/account` (state key `account/terraform.tfstate`, no env suffix); never declare them in a per-env stack.
 
 - `make init` - bootstrap `config.yml` + `secrets.vault.yml` + `.vault-password-file` (restore the password file from 1Password on a new machine).
 - `make edit-secrets` - set `vault.environments.<env>.stripe.{api_key,webhook_secret}`.

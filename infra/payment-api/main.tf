@@ -233,39 +233,6 @@ resource "aws_lambda_permission" "license_generator_sns" {
 }
 
 #================================================
-# API Gateway CloudWatch Logging Setup
-#================================================
-
-# IAM role for API Gateway to write logs to CloudWatch
-resource "aws_iam_role" "api_gateway_cloudwatch" {
-  name = "breachline-api-gateway-cloudwatch-role${local.suffix}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "apigateway.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-# Attach the AmazonAPIGatewayPushToCloudWatchLogs managed policy
-resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {
-  role       = aws_iam_role.api_gateway_cloudwatch.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
-}
-
-# Set the CloudWatch role ARN in API Gateway account settings
-resource "aws_api_gateway_account" "main" {
-  cloudwatch_role_arn = aws_iam_role.api_gateway_cloudwatch.arn
-}
-
-#================================================
 # Stripe Webhook Lambda Function
 #================================================
 

@@ -14,6 +14,7 @@ Generated files (all gitignored, written 0600):
   - infra/website/<env>.tfvars           # non-secret website config
   - infra/sync-api/<env>.tfvars          # non-secret sync-api config
   - infra/payment-api/<env>.tfvars       # non-secret payment-api config
+  - infra/account/account.tfvars         # account-wide config (not per-env)
 
 Run via `make render ENV=<env>`, or directly:
     python3 scripts/render-config.py <env>
@@ -158,7 +159,6 @@ environment            = "{env}"
 project                = "breachline"
 api_domain_name        = "{s.get('api_domain_name', '')}"
 ses_email_from         = "{s.get('ses_email_from', '')}"
-ses_verified_domain    = "{s.get('ses_verified_domain', 'breachline.app')}"
 pin_request_rate_limit = {s.get('pin_request_rate_limit', 3)}
 lambda_memory_size     = {s.get('lambda_memory_size', 512)}
 lambda_timeout         = {s.get('lambda_timeout', 30)}
@@ -178,6 +178,15 @@ environment      = "{env}"
 ses_sender_email = "{p.get('ses_sender_email', '')}"
 """
     write(REPO / f"infra/payment-api/{env}.tfvars", body)
+
+
+def render_account(c: dict) -> None:
+    a = c.get("account") or {}
+    body = f"""{HEADER}
+aws_region = "{c['aws']['region']}"
+ses_domain = "{a.get('ses_domain', 'breachline.app')}"
+"""
+    write(REPO / "infra/account/account.tfvars", body)
 
 
 def fmt_tfvars() -> None:
@@ -201,6 +210,7 @@ def main() -> None:
     render_website(c, env)
     render_sync_api(c, env)
     render_payment_api(c, env)
+    render_account(c)
     fmt_tfvars()
     print(f"[ok] rendered {env} config from config.yml + secrets.vault.yml")
 

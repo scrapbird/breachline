@@ -21,7 +21,7 @@ The infrastructure consists of:
 3. **Go** >= 1.21 for building Lambda functions
 4. **S3 Bucket** for Terraform state: `breachline-state-uf308ht4`
 5. **DynamoDB Table** for state locking: `terraform-state-lock`
-6. **Verified SES Domain** or email address
+6. **Account layer applied** (`infra/account`): it owns the SES domain identity and the API Gateway CloudWatch logging role
 
 ## Required Input Variables
 
@@ -33,8 +33,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### Critical Variables
 
-- `ses_email_from`: Email address to send PINs from (must be verified in SES)
-- `ses_verified_domain`: Verified domain in SES
+- `ses_email_from`: Email address to send PINs from (must be on the domain verified by `infra/account`)
 - `license_public_key`: ECDSA public key for license validation (PEM format)
 - `jwt_secret`: Secure random string for signing JWT tokens
 - `alarm_email`: Email address for CloudWatch alarms
@@ -86,10 +85,10 @@ Type `yes` when prompted to confirm deployment.
 
 ### 4. Configure DNS (if using custom domain)
 
-After deployment, configure your DNS with the SES DKIM tokens:
+The SES domain identity and its DKIM records are managed by the account layer, not this stack:
 
 ```bash
-terraform output ses_dkim_tokens
+cd ../account && terraform output ses_dkim_records
 ```
 
 Add the DKIM CNAME records to your DNS provider.
@@ -188,10 +187,10 @@ ls -la src/*/function.zip
 
 ### SES Email Not Verified
 
-Verify your email or domain in SES:
+Check the domain identity owned by `infra/account` is verified (DKIM CNAMEs published):
 
 ```bash
-aws ses verify-email-identity --email-address noreply@breachline.com
+aws sesv2 get-email-identity --email-identity breachline.app --region us-east-2
 ```
 
 ### State Lock Issues

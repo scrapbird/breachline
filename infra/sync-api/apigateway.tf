@@ -12,11 +12,6 @@ resource "aws_api_gateway_rest_api" "main" {
   }
 }
 
-# API Gateway Account (for CloudWatch logging)
-resource "aws_api_gateway_account" "main" {
-  cloudwatch_role_arn = aws_iam_role.api_gateway_cloudwatch.arn
-}
-
 # Lambda Authorizer
 resource "aws_api_gateway_authorizer" "jwt" {
   name            = "jwt-authorizer"

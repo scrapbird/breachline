@@ -17,7 +17,10 @@
 #
 # To move between machines: clone the repo and copy .vault-password-file from
 # 1Password, then `make render ENV=<env> && make deploy ENV=<env>`.
-# AWS credentials come from the standard chain (env / shared config / SSO).
+# AWS credentials come from the `breachline` named profile in ~/.aws/config
+# (SSO). Override with `make <target> AWS_PROFILE_NAME=<profile>`; an
+# AWS_PROFILE already set in your shell is deliberately ignored so a deploy
+# can't land in the wrong account.
 
 SHELL := /bin/bash
 REPO  := $(shell pwd)
@@ -26,6 +29,10 @@ PY    := $(VENV)/bin/python3
 
 # Target environment. Override per-invocation: `make deploy ENV=prod`.
 ENV ?= dev
+
+# AWS profile used by every aws/terraform call (exported to all recipes).
+AWS_PROFILE_NAME ?= breachline
+export AWS_PROFILE := $(AWS_PROFILE_NAME)
 
 # Default validity for `make license`.
 DAYS ?= 30
@@ -42,8 +49,8 @@ SRC := set -a; . $(REPO)/secrets.env; set +a
 
 .PHONY: help venv init render edit-secrets view-secrets edit-config license \
         build build-payment-api build-sync-api build-website preview-website \
-        tf-payment-api tf-sync-api tf-website \
-        tf-payment-api-destroy tf-sync-api-destroy tf-website-destroy \
+        tf-account tf-payment-api tf-sync-api tf-website \
+        tf-account-destroy tf-payment-api-destroy tf-sync-api-destroy tf-website-destroy \
         enable-website disable-website enable-sync-api disable-sync-api \
         enable-payment-api disable-payment-api \
         deploy destroy all clean \
@@ -152,6 +159,14 @@ build: build-payment-api build-sync-api build-website  ## @core Build all lambda
 # ==================== Terraform applies ====================
 # Each renders ENV's config, sources secrets.env (TF_VAR_* secrets), inits the
 # S3 backend at the env-scoped state key, and applies the env tfvars.
+#
+# infra/account is the exception: account-wide resources shared by dev + prod
+# (SES domain identity, API Gateway logging role). One fixed state key, no ENV.
+
+tf-account: render  ## @apply Apply infra/account (account-wide, ignores ENV)
+	@cd infra/account && \
+	  terraform init -reconfigure && \
+	  terraform apply -auto-approve -var-file=account.tfvars
 
 tf-payment-api: render build-payment-api  ## @apply Apply infra/payment-api for ENV
 	@$(ENV_GUARD); $(SRC); cd infra/payment-api && \
@@ -170,6 +185,12 @@ tf-website: render build-website  ## @apply Apply infra/website for ENV
 
 # ==================== Terraform destroys ====================
 
+# Not part of `destroy`: dev and prod both depend on it.
+tf-account-destroy: render  ## @destroy Destroy infra/account (breaks BOTH envs; destroy them first)
+	@cd infra/account && \
+	  terraform init -reconfigure && \
+	  terraform destroy -var-file=account.tfvars
+
 tf-payment-api-destroy: render  ## @destroy Destroy infra/payment-api for ENV
 	@$(ENV_GUARD); $(SRC); cd infra/payment-api && \
 	  terraform init -reconfigure -backend-config="key=payment-api/$(ENV)/terraform.tfstate" && \
@@ -186,12 +207,13 @@ tf-website-destroy: render  ## @destroy Destroy infra/website for ENV
 	  terraform destroy -auto-approve -var-file=$(ENV).tfvars
 
 # ==================== Full pipeline ====================
-# Apply order: payment-api (license signing + Stripe) -> sync-api (validates
-# licenses, signs JWTs) -> website. Each honours its component toggle so a
-# disabled component is skipped.
+# Apply order: account (shared SES + API Gateway logging role) -> payment-api
+# (license signing + Stripe) -> sync-api (validates licenses, signs JWTs) ->
+# website. Each env component honours its toggle so a disabled one is skipped.
 
-deploy: render  ## @core Build + apply every enabled component for ENV
+deploy: render  ## @core Build + apply the account layer + every enabled component for ENV
 	@$(ENV_GUARD)
+	@$(MAKE) tf-account ENV=$(ENV)
 	@$(SRC); if [ "$$MAKE_PAYMENT_API_ENABLED" = "true" ]; then \
 	    $(MAKE) tf-payment-api ENV=$(ENV); \
 	  else echo "[skip] payment-api disabled for $(ENV)"; fi
@@ -203,7 +225,7 @@ deploy: render  ## @core Build + apply every enabled component for ENV
 	  else echo "[skip] website disabled for $(ENV)"; fi
 	@echo "[ok] deploy complete ($(ENV))"
 
-destroy: render  ## @core Destroy every component for ENV (reverse order)
+destroy: render  ## @core Destroy every component for ENV (reverse order; keeps infra/account)
 	@$(ENV_GUARD)
 	@$(MAKE) tf-website-destroy ENV=$(ENV)
 	@$(MAKE) tf-sync-api-destroy ENV=$(ENV)
@@ -224,4 +246,5 @@ clean:  ## @core Remove rendered files (keeps config.yml + secrets.vault.yml + p
 	@rm -f secrets.env
 	@find infra -maxdepth 2 -name "dev.tfvars" -delete
 	@find infra -maxdepth 2 -name "prod.tfvars" -delete
+	@rm -f infra/account/account.tfvars
 	@echo "[ok] cleaned rendered files"

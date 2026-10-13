@@ -33,12 +33,6 @@ variable "ses_email_from" {
   default     = "noreply@breachline.app"
 }
 
-variable "ses_verified_domain" {
-  description = "Verified domain for SES (e.g., breachline.app)"
-  type        = string
-  default     = "breachline.app"
-}
-
 variable "license_public_key" {
   description = "ECDSA public key for license validation (PEM format)"
   type        = string

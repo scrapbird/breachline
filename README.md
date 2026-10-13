@@ -33,7 +33,7 @@ The repository is structured as follows:
 
 # Setup
 
-Step-by-step to stand up **every component** (payment-api, sync-api, website) in a **brand-new AWS account** from scratch. The day-to-day command reference lives in [Deploying Infrastructure](#deploying-infrastructure) below; this section covers the one-time bootstrap around it.
+Step-by-step to stand up **every component** (account layer, payment-api, sync-api, website) in a **brand-new AWS account** from scratch. The day-to-day command reference lives in [Deploying Infrastructure](#deploying-infrastructure) below; this section covers the one-time bootstrap around it.
 
 ## 0. Install local prerequisites
 
@@ -106,7 +106,7 @@ Leave `stripe.webhook_secret` blank for now - the webhook URL doesn't exist unti
 make deploy ENV=dev
 ```
 
-Builds the Go Lambda zips + Hugo site, then applies **payment-api → sync-api → website** in that order (payment-api signs licenses, sync-api validates them and signs JWTs, website last). Note the Terraform outputs - especially the payment-api `webhook_url`.
+Builds the Go Lambda zips + Hugo site, then applies **account → payment-api → sync-api → website** in that order (the account layer holds the shared SES domain identity and API Gateway logging role, payment-api signs licenses, sync-api validates them and signs JWTs, website last). Note the Terraform outputs - especially the payment-api `webhook_url`.
 
 ## 8. Stripe - phase 2 (webhook secret)
 
@@ -119,10 +119,10 @@ make tf-payment-api ENV=dev    # redeploy so the Lambda can verify signatures
 
 ## 9. SES (email delivery)
 
-The **prod** deploy creates the `breachline.app` SES domain identity + DKIM (dev reuses the same verified domain). After deploying prod:
-- Add the DKIM CNAME records from the `ses_dkim_tokens` output to Route53.
-- Verify the from-address identity via the confirmation email SES sends.
-- New SES accounts are **sandboxed** - request production access to email arbitrary customers.
+The account layer (`infra/account`, applied by every `make deploy` or alone with `make tf-account`) creates the `breachline.app` SES domain identity with Easy DKIM, shared by dev and prod. After its first apply:
+- Add the DKIM CNAME records from `terraform output ses_dkim_records` (run in `infra/account`) to DNS.
+- No per-address identities are needed: once the domain is verified, any `@breachline.app` sender works.
+- New SES accounts are **sandboxed** per region - request production access in the stack's region (us-east-2) to email arbitrary customers.
 
 ## 10. Deploy prod
 

@@ -16,6 +16,11 @@ config:
     region: "us-east-2"
     tfstate_bucket: "breachline-state-uf308ht4"
 
+  # Account-wide resources (infra/account), applied once per AWS account and
+  # shared by dev + prod: the SES sending domain + the API Gateway logging role.
+  account:
+    ses_domain: "breachline.app"
+
   # Shared defaults applied under every environment. A key set inside an
   # environments.<env>.<component> block overrides the same key here.
   defaults:
@@ -25,7 +30,6 @@ config:
       audit_ttl_days: 90
       pin_ttl_hours: 12
       pin_request_rate_limit: 3
-      ses_verified_domain: "breachline.app"
     website:
       price_class: "PriceClass_100"
       default_root_object: "index.html"
