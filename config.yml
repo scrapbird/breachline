@@ -46,10 +46,10 @@ config:
         enable_ssl: false
       sync_api:
         api_domain_name: "api-dev.breachline.app"
-        ses_email_from: "noreply-dev@breachline.app"
+        ses_email_from: "info@breachline.app"
         alarm_email: "alerts@breachline.app"
       payment_api:
-        ses_sender_email: "noreply-dev@breachline.app"
+        ses_sender_email: "info@breachline.app"
 
     prod:
       components:
@@ -62,7 +62,7 @@ config:
         enable_ssl: true
       sync_api:
         api_domain_name: "api.breachline.app"
-        ses_email_from: "noreply@breachline.app"
+        ses_email_from: "info@breachline.app"
         alarm_email: "alerts@breachline.app"
       payment_api:
-        ses_sender_email: "noreply@breachline.app"
+        ses_sender_email: "info@breachline.app"

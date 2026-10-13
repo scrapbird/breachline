@@ -1,0 +1,218 @@
+# The swarm for BreachLine. Named `default`, so it is active in this repo
+# without a binding; `/delegate swarm off` for a session without it.
+#
+# There is no coordinator role: the parent session IS the coordinator. A
+# delegate child is spawned with `--tools` limited to its grant and can never
+# hold `delegate` itself, so a "coordinator" child could not hand anything out.
+# Talk to the parent; it runs the flows below and applies the result.
+#
+# Roles map onto the repo's real seam. The backend is Go (application/app,
+# application/*.go, and the lambdas under infra/*-api/src); the frontend is
+# TypeScript + React under application/frontend. They meet at the Wails
+# bindings (application/frontend/wailsjs), which are GENERATED and gitignored,
+# as is frontend/dist, which main.go embeds -- so a fresh worktree has neither,
+# and every step that compiles across the seam regenerates them first.
+#
+# A change that crosses the seam is the `fullstack` flow: the architect writes
+# the plan (including the Go <-> TS contract), backend-dev builds the Go side,
+# frontend-dev builds the UI ON TOP OF IT in the same worktree, and each QA
+# runs only if its side was touched (`when`). Two devs in two worktrees would
+# each regenerate bindings against a different Go tree and conflict on apply.
+#
+# Planning, building and review run on Claude Code (architect and reviewer on
+# Opus, devs on Sonnet); both QA roles run on pi with OpenAI's gpt-6-luna, a
+# different model family from the one that wrote the code. Every role
+# runs in a herdr pane, so start pi inside herdr (or change `runtime: herdr`
+# to `runtime: auto` to fall back to headless children outside it).
+
+description: Change BreachLine -- plan, build backend and/or frontend, test each side, review against CLAUDE.md
+
+roles:
+  architect:
+    agent: Plan
+    kind: claude
+    model: claude-opus-5-5
+    runtime: herdr
+    description: Plan a change into doc/plans/, including any Go <-> TypeScript binding contract
+  backend-dev:
+    agent: Implement
+    kind: claude
+    model: claude-sonnet-5-5
+    runtime: herdr
+    description: Go -- the Wails app backend (application/app, application/*.go) and the sync/payment API lambdas
+  frontend-dev:
+    agent: Implement
+    kind: claude
+    model: claude-sonnet-5-5
+    runtime: herdr
+    description: TypeScript + React UI under application/frontend
+  backend-qa:
+    agent: Verify
+    model: openai/gpt-6-luna
+    runtime: herdr
+    description: go vet / go test the Go modules a change touched
+  frontend-qa:
+    agent: Verify
+    model: openai/gpt-6-luna
+    runtime: herdr
+    description: Regenerate bindings, typecheck and vite-build the frontend
+  reviewer:
+    agent: Analyze
+    kind: claude
+    model: claude-opus-5-5
+    runtime: herdr
+    description: Read a change against the plan, CLAUDE.md's rules and application/doc
+
+channels:
+  - { from: parent, to: [architect, backend-dev, frontend-dev, backend-qa, frontend-qa, reviewer] }
+  # Flow hand-offs. A step is delegated on behalf of the previous step's role,
+  # and a `when` skip makes the NEXT one the previous, hence the extra routes.
+  - { from: architect, to: [backend-dev, frontend-dev] }
+  - { from: backend-dev, to: [frontend-dev, backend-qa, reviewer] }
+  - { from: frontend-dev, to: [backend-dev, backend-qa, frontend-qa, reviewer] }
+  - { from: backend-qa, to: [backend-dev, frontend-qa, reviewer] }
+  - { from: frontend-qa, to: [frontend-dev, reviewer] }
+  - { from: reviewer, to: [backend-dev, frontend-dev] }
+  - { from: "*", to: parent }
+
+flows:
+  fullstack:
+    description: plan, backend then frontend in one worktree, test each side touched, review; failures go back to the side that owns them
+    max_hops: 14
+    steps:
+      - id: plan
+        role: architect
+        task: |
+          Write the implementation plan for this change to BreachLine:
+
+          {task}
+
+          Read CLAUDE.md, application/README.md and application/doc/ first. Write the plan to doc/plans/<short-slug>.md (the
+          existing plans there use a slug with no date), one physical line per paragraph -- this repo forbids hard-wrapped
+          markdown. Two developers implement it IN ORDER in one worktree: backend-dev (Go), then frontend-dev (TypeScript +
+          React). Split the Steps into a "Backend" and a "Frontend" section, and spell out the contract between them: every
+          new or changed Go method bound to the frontend, with its exact signature and the TS shape Wails will generate for it.
+      - id: backend
+        role: backend-dev
+        worktree: plan
+        task: |
+          {task}
+
+          The architect's plan is the new file under doc/plans/ in this worktree (`git status --porcelain doc/plans`). Read it
+          and CLAUDE.md, then implement the BACKEND section only: Go in application/ (application/app, application/*.go) and,
+          if the plan says so, infra/*-api/src. Keep exactly to the binding contract in the plan -- frontend-dev builds against
+          it next. APIs use Go's standard net/http. Verify with `go vet` and `go test` in each Go module you touched
+          (`cd application && go test ./app/...`; each lambda under infra/ is its own module). Leave the plan file in place.
+          Do not commit. If nothing on the backend needs to change, say so and change nothing.
+
+          {feedback}
+      - id: frontend
+        role: frontend-dev
+        worktree: backend
+        task: |
+          {task}
+
+          The architect's plan is under doc/plans/ in this worktree, and backend-dev has already implemented its BACKEND
+          section here. Implement the FRONTEND section: TypeScript + React under application/frontend. The Wails bindings
+          (frontend/wailsjs) are generated and gitignored, so regenerate them against this Go tree first:
+          `cd application && wails generate module`. Then `cd frontend && npm ci && npx tsc --noEmit && npx vite build`.
+          Do not run `npm run build` (its prebuild rewrites the third-party licence file). No em-dashes in any user-visible
+          string. If the backend does not match the plan's contract, say exactly where rather than working around it.
+          Do not commit. If nothing on the frontend needs to change, say so and change nothing.
+
+          {feedback}
+      - id: test-backend
+        role: backend-qa
+        worktree: frontend
+        when: ["application/*.go", "application/go.*", "infra/*-api/src/*", "shared/*"]
+        on: { fail: backend }
+        task: &backend-qa |
+          Check the Go side of this BreachLine worktree; fix nothing. Changed files: `git status --porcelain` and
+          `git diff --name-only HEAD`.
+          - application/: `go vet ./app/...` and `go test ./app/...` (package main embeds frontend/dist, which a fresh
+            worktree does not have; test ./app/... rather than ./...).
+          - Every module under infra/*-api/src/ that the change touched (each has its own go.mod): `go vet ./... && go test ./...`
+            and `go build ./...` in that directory.
+          - shared/types changed: `go build ./...` there, and in every module that imports it.
+          Report each command with pass/fail and the failing output.
+
+          The request: {task}
+      - id: test-frontend
+        role: frontend-qa
+        worktree: frontend
+        when: ["application/frontend/*", "application/app/*", "application/*.go"]
+        on: { fail: frontend }
+        task: &frontend-qa |
+          Check the frontend of this BreachLine worktree; fix nothing. Bindings and node_modules are not in a fresh
+          worktree, so: `cd application && wails generate module`, then in application/frontend
+          `npm ci && npx tsc --noEmit && npx vite build`. A Go change alone runs this too: it can break the generated
+          bindings the UI calls. Report each command with pass/fail and the failing output (the tsc errors, not the log).
+
+          The request: {task}
+      - id: review
+        role: reviewer
+        worktree: frontend
+        on: { fail: backend }
+        task: &review |
+          Review a change to BreachLine. You are in the change's worktree: read the plan under doc/plans/ (if there is one),
+          the files the developers list below, CLAUDE.md, and the application/doc/ pages for the subsystems touched. Judge
+          only real problems:
+          - does it do what was asked and what the plan says, and nothing it was not;
+          - do the Go methods and the TypeScript that calls them agree (names, argument and return shapes, error handling);
+          - CLAUDE.md's rules: APIs in Go on net/http, UI in TypeScript + React, NO em-dashes in user-visible copy (UI, website,
+            docs), markdown not hard-wrapped, standalone scripts in python3 with argparse, tools under tools/<dash-name>/;
+          - concurrency and resource handling in the Go backend (the file loaders and query cache are hot paths);
+          - anything licence- or sync-related that could leak data or bypass a licence check.
+          A FAIL goes back to the backend developer first and then the frontend one, each in the same worktree, so say which
+          side each problem is on.
+
+          The request: {task}
+
+          What the developers reported:
+          {previous}
+
+  backend:
+    description: Go-only change (app backend or an API lambda) -- plan, build, test, review
+    max_hops: 10
+    steps:
+      - id: plan
+        role: architect
+        task: |
+          Write the implementation plan for this Go-only change to BreachLine:
+
+          {task}
+
+          Read CLAUDE.md, application/README.md and application/doc/ first. Write the plan to doc/plans/<short-slug>.md, one
+          physical line per paragraph (this repo forbids hard-wrapped markdown). If it turns out the frontend must change too,
+          say so at the top of the plan: it should be run as the fullstack flow instead.
+      - id: build
+        role: backend-dev
+        worktree: plan
+        task: |
+          {task}
+
+          The plan is the new file under doc/plans/ in this worktree. Read it and CLAUDE.md, then implement it. APIs use Go's
+          standard net/http. Verify with `go vet` and `go test` in each Go module you touched (`cd application && go test
+          ./app/...`; each lambda under infra/ is its own module). Leave the plan file in place. Do not commit.
+
+          {feedback}
+      - { id: test, role: backend-qa, worktree: build, on: { fail: build }, task: *backend-qa }
+      - { id: review, role: reviewer, worktree: build, on: { fail: build }, task: *review }
+
+  frontend:
+    description: UI-only change -- build, test, review (no plan step; ask the architect first for anything sizeable)
+    max_hops: 8
+    steps:
+      - id: build
+        role: frontend-dev
+        task: |
+          {task}
+
+          Read CLAUDE.md and application/README.md first. TypeScript + React under application/frontend; do not change Go.
+          The Wails bindings are generated and gitignored: `cd application && wails generate module`, then
+          `cd frontend && npm ci && npx tsc --noEmit && npx vite build` (not `npm run build`, whose prebuild rewrites the
+          licence file). No em-dashes in any user-visible string. Do not commit.
+
+          {feedback}
+      - { id: test, role: frontend-qa, worktree: build, on: { fail: build }, task: *frontend-qa }
+      - { id: review, role: reviewer, worktree: build, on: { fail: build }, task: *review }
