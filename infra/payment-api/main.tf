@@ -95,9 +95,13 @@ resource "aws_secretsmanager_secret_version" "stripe_api_key" {
   secret_string = var.stripe_api_key
 }
 
+# The webhook signing secret only exists once the Stripe webhook has been
+# pointed at this stack's webhook_url, so the first deploy runs without it.
+# Secrets Manager rejects an empty value; store a placeholder (every webhook
+# then fails signature verification) until the real secret is set.
 resource "aws_secretsmanager_secret_version" "stripe_webhook_secret" {
   secret_id     = aws_secretsmanager_secret.stripe_webhook_secret.id
-  secret_string = var.stripe_webhook_secret
+  secret_string = var.stripe_webhook_secret != "" ? var.stripe_webhook_secret : "unset"
 }
 
 # IAM role for License Generator Lambda
@@ -162,18 +166,6 @@ resource "aws_iam_role_policy" "license_generator_sns_publish" {
   })
 }
 
-# Build License Generator Lambda
-resource "null_resource" "build_license_generator" {
-  triggers = {
-    main_go = filemd5("${path.module}/src/license-generator/main.go")
-    go_mod  = filemd5("${path.module}/src/license-generator/go.mod")
-  }
-
-  provisioner "local-exec" {
-    command = "cd ${path.module}/src/license-generator && GOOS=linux GOARCH=arm64 go build -o bootstrap main.go && zip ../../build/license-generator.zip bootstrap && rm bootstrap"
-  }
-}
-
 # License Generator Lambda function
 resource "aws_lambda_function" "license_generator" {
   filename         = "${path.module}/build/license-generator.zip"
@@ -192,8 +184,6 @@ resource "aws_lambda_function" "license_generator" {
       LICENSE_DELIVERY_TOPIC = aws_sns_topic.license_delivery.arn
     }
   }
-
-  depends_on = [null_resource.build_license_generator]
 }
 
 # CloudWatch Log Group for License Generator
@@ -301,18 +291,6 @@ resource "aws_iam_role_policy" "stripe_webhook_secrets" {
   })
 }
 
-# Build Stripe Webhook Lambda
-resource "null_resource" "build_stripe_webhook" {
-  triggers = {
-    main_go = filemd5("${path.module}/src/stripe-webhook/main.go")
-    go_mod  = filemd5("${path.module}/src/stripe-webhook/go.mod")
-  }
-
-  provisioner "local-exec" {
-    command = "cd ${path.module}/src/stripe-webhook && GOOS=linux GOARCH=arm64 go build -o bootstrap main.go && zip ../../build/stripe-webhook.zip bootstrap && rm bootstrap"
-  }
-}
-
 # Stripe Webhook Lambda function
 resource "aws_lambda_function" "stripe_webhook" {
   filename         = "${path.module}/build/stripe-webhook.zip"
@@ -333,8 +311,6 @@ resource "aws_lambda_function" "stripe_webhook" {
       CLOUDFRONT_SECRET         = random_password.cloudfront_secret.result
     }
   }
-
-  depends_on = [null_resource.build_stripe_webhook]
 }
 
 # CloudWatch Log Group for Stripe Webhook
@@ -694,18 +670,6 @@ resource "aws_iam_role_policy" "license_sender_ses" {
   })
 }
 
-# Build License Sender Lambda
-resource "null_resource" "build_license_sender" {
-  triggers = {
-    main_go = filemd5("${path.module}/src/license-sender/main.go")
-    go_mod  = filemd5("${path.module}/src/license-sender/go.mod")
-  }
-
-  provisioner "local-exec" {
-    command = "cd ${path.module}/src/license-sender && GOOS=linux GOARCH=arm64 go build -o bootstrap main.go && zip ../../build/license-sender.zip bootstrap && rm bootstrap"
-  }
-}
-
 # License Sender Lambda function
 resource "aws_lambda_function" "license_sender" {
   filename         = "${path.module}/build/license-sender.zip"
@@ -724,8 +688,6 @@ resource "aws_lambda_function" "license_sender" {
       LOG_LEVEL        = "INFO"
     }
   }
-
-  depends_on = [null_resource.build_license_sender]
 }
 
 # CloudWatch Log Group for License Sender
