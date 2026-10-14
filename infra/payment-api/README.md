@@ -14,7 +14,7 @@ This infrastructure manages three Lambda functions:
 - **Source**: `src/license-generator/`
 
 ### 2. Stripe Webhook Handler
-- **Purpose**: Processes Stripe webhook events and publishes license requests
+- **Purpose**: Processes Stripe webhook events: premium purchases publish license requests; workspace sync and seat purchases (and subscription changes/cancellations) set the buyer's limits in sync-api's `user_subscriptions` table. See [`infra/stripe`](../stripe/README.md#how-purchases-are-handled)
 - **Runtime**: Go (provided.al2023)
 - **Trigger**: API Gateway endpoint receiving Stripe webhooks
 - **Exposure**: HTTPS endpoint exposed to internet (Stripe webhooks only)
@@ -25,7 +25,8 @@ This infrastructure manages three Lambda functions:
 - **Runtime**: Go (provided.al2023)
 - **Trigger**: SNS messages from license delivery topic
 - **Email Service**: Amazon SES
-- **Sender Address**: `noreply@breachline.app`
+- **Sender Address**: `SES_SENDER_EMAIL` (`info@breachline.app`)
+- **Test addresses**: reserved, undeliverable domains (`example.com`, `.test`, `.invalid`, ...) are redirected to the SES mailbox simulator so Stripe test data never causes a bounce
 - **Source**: `src/license-sender/`
 
 ### 4. SNS Topics

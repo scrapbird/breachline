@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -20,6 +21,37 @@ var (
 	sesClient      *ses.Client
 	logger         *slog.Logger
 )
+
+// sesSimulatorSuccess accepts mail without delivering it and without counting
+// against SES sending reputation.
+const sesSimulatorSuccess = "success@simulator.amazonses.com"
+
+// reservedDomains can never receive mail (RFC 2606 / RFC 6761). Stripe test
+// fixtures (`stripe trigger`) use stripe@example.com, which would bounce.
+var reservedDomains = []string{"example.com", "example.net", "example.org"}
+var reservedTLDs = []string{".example", ".test", ".invalid", ".localhost"}
+
+// deliverableAddress returns the address to actually send to: reserved,
+// undeliverable test addresses are redirected to the SES mailbox simulator so
+// the full send path still runs without causing a bounce.
+func deliverableAddress(email string) string {
+	at := strings.LastIndex(email, "@")
+	if at < 0 {
+		return email
+	}
+	domain := strings.ToLower(email[at+1:])
+	for _, d := range reservedDomains {
+		if domain == d || strings.HasSuffix(domain, "."+d) {
+			return sesSimulatorSuccess
+		}
+	}
+	for _, tld := range reservedTLDs {
+		if strings.HasSuffix(domain, tld) {
+			return sesSimulatorSuccess
+		}
+	}
+	return email
+}
 
 // LicenseDeliveryMessage represents the message from license generator
 type LicenseDeliveryMessage struct {
@@ -88,6 +120,13 @@ func Handler(ctx context.Context, snsEvent events.SNSEvent) error {
 		logger.Info("License delivery request parsed",
 			"email", deliveryMsg.Email,
 			"validity_days", deliveryMsg.ValidDays)
+
+		if to := deliverableAddress(deliveryMsg.Email); to != deliveryMsg.Email {
+			logger.Info("Reserved test address, sending to the SES mailbox simulator instead",
+				"email", deliveryMsg.Email,
+				"redirected_to", to)
+			deliveryMsg.Email = to
+		}
 
 		if err := sendLicenseEmail(ctx, deliveryMsg); err != nil {
 			logger.Error("Failed to send license email",

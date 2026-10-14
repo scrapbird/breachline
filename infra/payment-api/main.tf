@@ -46,6 +46,10 @@ locals {
   # deletion recovery window fails, which makes dev teardown/redeploy painful.
   # Give prod the safety window; let dev recycle immediately.
   secret_recovery_days = var.environment == "prod" ? 7 : 0
+
+  # sync-api's table of per-email workspace/seat limits. Referenced by its
+  # naming convention (not remote state) so this stack can apply first.
+  user_subscriptions_table = "breachline-sync-user-subscriptions${local.suffix}"
 }
 
 # Random secret for CloudFront to API Gateway authentication
@@ -287,6 +291,27 @@ resource "aws_iam_role_policy" "stripe_webhook_secrets" {
   })
 }
 
+# Sync purchases: the webhook writes workspace_limit/seat_count into
+# sync-api's user_subscriptions table.
+resource "aws_iam_role_policy" "stripe_webhook_user_subscriptions" {
+  name = "user-subscriptions-write"
+  role = aws_iam_role.stripe_webhook_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${local.user_subscriptions_table}"
+      }
+    ]
+  })
+}
+
 # Stripe Webhook Lambda function
 resource "aws_lambda_function" "stripe_webhook" {
   filename         = "${path.module}/build/stripe-webhook.zip"
@@ -305,6 +330,7 @@ resource "aws_lambda_function" "stripe_webhook" {
       LICENSE_GENERATION_TOPIC  = aws_sns_topic.license_generation.arn
       STRIPE_API_KEY_SECRET_ARN = aws_secretsmanager_secret.stripe_api_key.arn
       CLOUDFRONT_SECRET         = random_password.cloudfront_secret.result
+      USER_SUBSCRIPTIONS_TABLE  = local.user_subscriptions_table
     }
   }
 }

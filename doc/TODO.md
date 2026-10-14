@@ -34,7 +34,7 @@
 - [ ] Add proper rate limiting to sync-api endpoints
 - [ ] Make sync package use sync-api types properly
 - [ ] Ensure attributevalue.MarshalMap uses types everywhere
-- [ ] 🔴 **Error** Fix secrets manager license signing key in license-generator
+- [x] 🔴 **Error** Fix secrets manager license signing key in license-generator
 - [ ] Add proper logging to lambda functions
 - [ ] Add cloudwatch alerts for critical errors
 - [ ] Add lambda to forward cloudwatch alerts to discord
@@ -44,7 +44,12 @@
 - [x] Change yearly pricing to 100 USD
 - [x] Decide on sync pricing model
 - [x] Add new pricing objects for remote workspace API
-- [ ] Handle workspace sync + seat purchases in the stripe-webhook Lambda (write `user_subscriptions` workspace_limit/seat_count instead of issuing a license), then add sync payment links in `infra/stripe`
+- [x] Handle workspace sync + seat purchases in the stripe-webhook Lambda (write `user_subscriptions` workspace_limit/seat_count instead of issuing a license), then add sync payment links in `infra/stripe`
+- [ ] Renew premium licenses on subscription renewal: licenses are issued once at checkout (31 days for monthly, 365 for yearly), and renewal payments (`invoice.paid`) don't issue a new one, so a paying monthly customer's license expires after a month
+- [ ] Decide whether invited team members can log in to sync without their own sync purchase: `auth/request-pin` requires a `user_subscriptions` row, but PRICING.md says invitees only need a premium license
+- [ ] Make shared seats a pool across all of the owner's workspaces as PRICING.md describes: `workspace-add-member` currently compares one workspace's member count to the total seat count
+- [ ] Add a Stripe customer portal (`stripe_billing_portal_configuration` in `infra/stripe`) so customers can change quantities and cancel; the webhook already reconciles subscription updates and cancellations
+- [ ] Upgrade stripe-go to the current major version and the webhook endpoint's API version together
 - [x] Workspace sync service - decide pricing model
 
 ## Documentation

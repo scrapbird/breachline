@@ -116,18 +116,12 @@ Builds the Go Lambda zips + Hugo site, then applies **account â†’ payment-api â†
 ## 8. Test the payment flow
 
 ```sh
-stripe login                                 # once; pick the sandbox account
-stripe trigger checkout.session.completed    # webhook -> license generator -> license email
+stripe login                                                  # once; pick the sandbox account
+stripe fixtures infra/stripe/fixtures/premium-checkout.json   # webhook -> license generator -> license email
+stripe fixtures infra/stripe/fixtures/sync-checkout.json      # webhook -> sync-api user_subscriptions limits
 ```
 
-`stripe trigger` uses `stripe@example.com`, which bounces once SES is out of the sandbox. To test delivery without hurting the SES sending reputation, publish straight to the license-generation topic with the SES mailbox simulator:
-
-```sh
-aws sns publish --region us-east-2 --profile breachline \
-  --topic-arn arn:aws:sns:us-east-2:<account-id>:breachline-license-generation-dev \
-  --subject "License Generation Request" \
-  --message '{"email":"success@simulator.amazonses.com","days":30}'
-```
+The fixtures buy the real BreachLine prices as `success@simulator.amazonses.com` (the SES mailbox simulator), so nothing bounces. See [`infra/stripe/README.md`](infra/stripe/README.md#testing).
 
 ## 9. SES (email delivery)
 

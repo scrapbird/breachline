@@ -1,6 +1,12 @@
 output "payment_links" {
-  description = "Public payment link URLs by premium plan (consumed by the website build)"
-  value       = { for plan, link in stripe_payment_link.premium : plan => link.url }
+  description = "Public payment link URLs by plan: monthly, yearly, sync, seats (consumed by the website build)"
+  value = merge(
+    { for plan, link in stripe_payment_link.premium : plan => link.url },
+    {
+      sync  = stripe_payment_link.sync.url
+      seats = stripe_payment_link.seats.url
+    },
+  )
 }
 
 output "price_ids" {

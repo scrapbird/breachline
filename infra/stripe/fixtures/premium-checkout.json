@@ -1,0 +1,71 @@
+{
+  "_meta": {
+    "template_version": 0
+  },
+  "fixtures": [
+    {
+      "name": "price0",
+      "path": "/v1/prices",
+      "method": "get",
+      "params": {
+        "lookup_keys": [
+          "premium_monthly"
+        ],
+        "active": "true"
+      }
+    },
+    {
+      "name": "checkout_session",
+      "path": "/v1/checkout/sessions",
+      "method": "post",
+      "params": {
+        "success_url": "https://httpbin.org/post",
+        "cancel_url": "https://httpbin.org/post",
+        "mode": "subscription",
+        "customer_email": "success@simulator.amazonses.com",
+        "line_items": [
+          {
+            "price": "${price0:data.0.id}",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "payment_page",
+      "path": "/v1/payment_pages/${checkout_session:id}",
+      "method": "get"
+    },
+    {
+      "name": "payment_method",
+      "path": "/v1/payment_methods",
+      "method": "post",
+      "params": {
+        "type": "card",
+        "card": {
+          "token": "tok_visa"
+        },
+        "billing_details": {
+          "email": "success@simulator.amazonses.com",
+          "name": "BreachLine Test",
+          "address": {
+            "line1": "1 Test St",
+            "postal_code": "94103",
+            "city": "San Francisco",
+            "state": "CA",
+            "country": "US"
+          }
+        }
+      }
+    },
+    {
+      "name": "payment_page_confirm",
+      "path": "/v1/payment_pages/${checkout_session:id}/confirm",
+      "method": "post",
+      "params": {
+        "payment_method": "${payment_method:id}",
+        "expected_amount": 1000
+      }
+    }
+  ]
+}

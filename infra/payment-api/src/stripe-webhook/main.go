@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/stripe/stripe-go/v78"
@@ -75,12 +76,14 @@ func init() {
 	licenseGenerationTopic = os.Getenv("LICENSE_GENERATION_TOPIC")
 	stripeAPIKeySecretArn := os.Getenv("STRIPE_API_KEY_SECRET_ARN")
 	cloudfrontSecret = os.Getenv("CLOUDFRONT_SECRET")
+	userSubscriptionsTable = os.Getenv("USER_SUBSCRIPTIONS_TABLE")
 
 	logger.Info("Configuration loaded",
 		"license_generation_topic", licenseGenerationTopic,
 		"stripe_api_key_secret_arn", stripeAPIKeySecretArn,
 		"stripe_webhook_secret_arn", stripeWebhookSecretArn,
 		"cloudfront_secret_set", cloudfrontSecret != "",
+		"user_subscriptions_table", userSubscriptionsTable,
 		"stage", "init")
 
 	// Initialize AWS config
@@ -92,6 +95,7 @@ func init() {
 
 	// Initialize AWS SNS client
 	snsClient = sns.NewFromConfig(cfg)
+	ddbClient = dynamodb.NewFromConfig(cfg)
 	logger.Info("AWS SNS client initialized", "stage", "init")
 
 	// Initialize Secrets Manager client
@@ -189,50 +193,79 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		"event_type", event.Type,
 		"event_id", event.ID)
 
-	// Handle checkout.session.completed event
-	if event.Type == "checkout.session.completed" {
+	switch event.Type {
+	case "checkout.session.completed":
 		logger.Info("Processing checkout session completed event",
 			"event_type", event.Type)
 		var session stripe.CheckoutSession
 		if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
 			logger.Error("Failed to parse checkout session",
 				"error", err)
-			errorBody, _ := json.Marshal(ErrorResponse{Error: "Failed to parse session"})
-			return events.APIGatewayProxyResponse{
-				StatusCode: 400,
-				Body:       string(errorBody),
-			}, nil
+			return errorResponse(400, "Failed to parse session"), nil
 		}
 		logger.Info("Checkout session parsed",
 			"session_id", session.ID)
 
-		// Process the successful checkout
-		logger.Info("Initiating checkout session processing")
-		success, errMsg := processCheckoutSession(&session)
-		if !success {
-			logger.Error("Failed to process checkout session",
-				"error_message", errMsg,
-				"session_id", session.ID)
-			errorBody, _ := json.Marshal(ErrorResponse{Error: "Processing failed"})
-			return events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       string(errorBody),
-			}, nil
+		kind, err := classifyCheckout(session.ID)
+		if err != nil {
+			logger.Error("Failed to classify checkout", "error", err, "session_id", session.ID)
+			return errorResponse(500, "Processing failed"), nil
+		}
+		if !kind.premium && !kind.sync {
+			logger.Warn("Checkout contains no BreachLine products, ignoring", "session_id", session.ID)
+			return successResponse(), nil
+		}
+
+		// Sync first: reconciling is idempotent, so if the license step
+		// then fails and Stripe retries the event, nothing is applied twice.
+		if kind.sync {
+			if session.CustomerDetails == nil || session.CustomerDetails.Email == "" {
+				logger.Error("No customer email in sync checkout", "session_id", session.ID)
+				return errorResponse(500, "Processing failed"), nil
+			}
+			if err := reconcileSyncEntitlements(ctx, session.CustomerDetails.Email); err != nil {
+				logger.Error("Failed to provision sync entitlements", "error", err, "session_id", session.ID)
+				return errorResponse(500, "Processing failed"), nil
+			}
+		}
+
+		if kind.premium {
+			logger.Info("Initiating checkout session processing")
+			success, errMsg := processCheckoutSession(&session)
+			if !success {
+				logger.Error("Failed to process checkout session",
+					"error_message", errMsg,
+					"session_id", session.ID)
+				return errorResponse(500, "Processing failed"), nil
+			}
 		}
 		logger.Info("Checkout session processed successfully",
-			"session_id", session.ID)
+			"session_id", session.ID,
+			"premium", kind.premium,
+			"sync", kind.sync)
+		return successResponse(), nil
 
-		successBody, _ := json.Marshal(SuccessResponse{Received: true})
-		return events.APIGatewayProxyResponse{
-			StatusCode: 200,
-			Body:       string(successBody),
-		}, nil
+	case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted":
+		var sub stripe.Subscription
+		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+			logger.Error("Failed to parse subscription", "error", err)
+			return errorResponse(400, "Failed to parse subscription"), nil
+		}
+		logger.Info("Processing subscription event",
+			"event_type", event.Type,
+			"subscription_id", sub.ID,
+			"status", sub.Status)
+		if err := handleSubscriptionEvent(ctx, &sub); err != nil {
+			logger.Error("Failed to reconcile subscription", "error", err, "subscription_id", sub.ID)
+			return errorResponse(500, "Processing failed"), nil
+		}
+		return successResponse(), nil
 	}
 
 	// Return success for other event types (we don't process them)
 	logger.Info("Event acknowledged but not processed",
 		"event_type", event.Type,
-		"reason", "not_checkout_session_completed")
+		"reason", "unhandled_event_type")
 	successBody, _ := json.Marshal(SuccessResponse{Received: true})
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
@@ -370,6 +403,18 @@ func processCheckoutSession(session *stripe.CheckoutSession) (bool, string) {
 		"validity_days", licenseDays)
 
 	return true, ""
+}
+
+// errorResponse builds a JSON error response.
+func errorResponse(status int, msg string) events.APIGatewayProxyResponse {
+	body, _ := json.Marshal(ErrorResponse{Error: msg})
+	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body)}
+}
+
+// successResponse acknowledges an event to Stripe.
+func successResponse() events.APIGatewayProxyResponse {
+	body, _ := json.Marshal(SuccessResponse{Received: true})
+	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body)}
 }
 
 // stringPtr returns a pointer to the given string

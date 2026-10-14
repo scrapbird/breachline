@@ -11,13 +11,21 @@ It uses Stripe's official Terraform provider (`stripe/stripe`), pinned exactly t
 | Product: BreachLine Premium | Prices: 10 USD / month (`premium_monthly`), 100 USD / year (`premium_yearly`) |
 | Product: BreachLine Workspace Sync | Price: 5 USD / month per pack of 5 workspaces (`sync_workspace_pack_monthly`), sold by quantity |
 | Product: BreachLine Shared Seats | Price: 1 USD / month per seat (`sync_seat_monthly`), sold by quantity |
-| Payment links | Premium monthly and yearly, with promotion codes allowed |
-| Webhook endpoint | `checkout.session.completed` to payment-api's `webhook_url`, API version `2024-04-10` |
+| Payment links | Premium monthly and yearly; sync (1 to 100 packs, plus optional seats); seats on their own. All allow promotion codes |
+| Webhook endpoint | `checkout.session.completed` and `customer.subscription.created/updated/deleted` to payment-api's `webhook_url`, API version `2024-04-10` |
 | Secrets Manager secret version | The webhook signing secret, written into payment-api's `breachline-stripe-webhook-secret-<env>` |
 
 Pricing follows `doc/PRICING.md`. Each price has a `lookup_key` and `breachline_product` metadata so code can identify it without hardcoding Stripe IDs, which differ between the sandbox and live accounts.
 
-There are no payment links for workspace sync or seats yet: the webhook Lambda treats every completed checkout as a premium purchase, so selling sync before it can provision `user_subscriptions` would issue a license instead (see `doc/TODO.md`).
+## How purchases are handled
+
+The payment-api webhook Lambda classifies each checkout by its prices' `breachline_product` metadata:
+
+- **premium**: issues a license and emails it (the existing flow).
+- **sync_workspaces / sync_seats**: recomputes the buyer's sync limits from every active subscription across all Stripe customers with their email, and writes them to sync-api's `user_subscriptions` table: `workspace_limit = 5 x packs` (from the price's `workspaces_per_unit`) and `seat_count = seats`. Subscriptions that are `active`, `trialing` or `past_due` count; cancelled, unpaid and incomplete ones don't.
+- Anything else (for example the throwaway product `stripe trigger` creates) is logged and ignored.
+
+Subscription events recompute the same totals, so buying more packs or seats, changing quantities and cancelling all converge on the right limits, and retried or out-of-order webhooks are harmless.
 
 ## Dependencies
 
@@ -53,6 +61,19 @@ make disable-stripe ENV=dev       # persistently turn the component off, then de
 ```
 
 Outputs: `payment_links` (plan to URL), `price_ids` (lookup key to price ID) and `webhook_endpoint_id`.
+
+## Testing
+
+`infra/stripe/fixtures` holds Stripe CLI fixtures that buy the real BreachLine prices (looked up by `lookup_key`, so they work in any account) as `success@simulator.amazonses.com`, the SES mailbox simulator:
+
+```sh
+stripe login                                              # once; pick the sandbox
+stripe fixtures infra/stripe/fixtures/premium-checkout.json   # license issued + emailed
+stripe fixtures infra/stripe/fixtures/sync-checkout.json      # 2 packs + 3 seats -> 10 workspaces, 3 seats
+stripe fixtures infra/stripe/fixtures/seats-checkout.json     # +2 seats, summed with the above
+```
+
+`stripe trigger checkout.session.completed` still works but buys a non-BreachLine product, so the webhook ignores it. The license sender also redirects reserved test domains (`example.com`, `.test`, ...) to the SES simulator, so no test can cause a bounce.
 
 ## Notes
 

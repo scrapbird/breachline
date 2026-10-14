@@ -21,7 +21,7 @@ echo ""
 echo "Building License Generator..."
 cd "$SCRIPT_DIR/src/license-generator"
 go mod download
-GOOS=linux GOARCH=arm64 go build -o bootstrap main.go
+GOOS=linux GOARCH=arm64 go build -o bootstrap .
 zip "$BUILD_DIR/license-generator.zip" bootstrap
 rm bootstrap
 echo "✓ License Generator built successfully"
@@ -31,7 +31,7 @@ echo ""
 echo "Building Stripe Webhook..."
 cd "$SCRIPT_DIR/src/stripe-webhook"
 go mod download
-GOOS=linux GOARCH=arm64 go build -o bootstrap main.go
+GOOS=linux GOARCH=arm64 go build -o bootstrap .
 zip "$BUILD_DIR/stripe-webhook.zip" bootstrap
 rm bootstrap
 echo "✓ Stripe Webhook built successfully"
@@ -41,7 +41,7 @@ echo ""
 echo "Building License Sender..."
 cd "$SCRIPT_DIR/src/license-sender"
 go mod download
-GOOS=linux GOARCH=arm64 go build -o bootstrap main.go
+GOOS=linux GOARCH=arm64 go build -o bootstrap .
 zip "$BUILD_DIR/license-sender.zip" bootstrap
 rm bootstrap
 echo "✓ License Sender built successfully"

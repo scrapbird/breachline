@@ -132,12 +132,13 @@ resource "stripe_price" "sync_seat" {
 }
 
 #================================================
-# Payment links (premium only)
+# Payment links
 #================================================
 
-# No sync/seat links yet: the stripe-webhook Lambda treats every completed
-# checkout as a premium purchase and would issue a license instead of
-# provisioning workspaces/seats (doc/TODO.md). Add them once it handles sync.
+# The stripe-webhook Lambda classifies each checkout by its prices'
+# breachline_product metadata: premium issues a license; sync packs and
+# seats are summed across the buyer's active subscriptions into sync-api's
+# user_subscriptions (workspace_limit = 5 x packs, seat_count = seats).
 
 locals {
   after_completion = var.success_url != "" ? {
@@ -177,15 +178,90 @@ resource "stripe_payment_link" "premium" {
   }
 }
 
+# Workspace sync: packs of 5 workspaces (at least 1, the base plan), with
+# shared seats as an optional add-on in the same checkout.
+resource "stripe_payment_link" "sync" {
+  line_items = [
+    {
+      price    = stripe_price.sync_workspace_pack.id
+      quantity = 1
+      adjustable_quantity = {
+        enabled = true
+        minimum = 1
+        maximum = 100
+      }
+    }
+  ]
+
+  optional_items = [
+    {
+      price    = stripe_price.sync_seat.id
+      quantity = 1
+      adjustable_quantity = {
+        enabled = true
+        minimum = 1
+        maximum = 500
+      }
+    }
+  ]
+
+  after_completion = {
+    type     = local.after_completion.type
+    redirect = local.after_completion.redirect
+  }
+
+  allow_promotion_codes = true
+
+  metadata = {
+    breachline_product = "sync_workspaces"
+    plan               = "sync"
+  }
+}
+
+# Extra seats on their own, for existing sync customers sharing more
+# workspaces. Each purchase is a separate subscription; the webhook sums them.
+resource "stripe_payment_link" "seats" {
+  line_items = [
+    {
+      price    = stripe_price.sync_seat.id
+      quantity = 1
+      adjustable_quantity = {
+        enabled = true
+        minimum = 1
+        maximum = 500
+      }
+    }
+  ]
+
+  after_completion = {
+    type     = local.after_completion.type
+    redirect = local.after_completion.redirect
+  }
+
+  allow_promotion_codes = true
+
+  metadata = {
+    breachline_product = "sync_seats"
+    plan               = "seats"
+  }
+}
+
 #================================================
 # Webhook endpoint -> payment-api
 #================================================
 
 resource "stripe_webhook_endpoint" "payment_api" {
-  url            = local.payment_api.webhook_url
-  enabled_events = ["checkout.session.completed"]
-  api_version    = var.webhook_api_version
-  description    = "BreachLine payment-api (${var.environment})"
+  url = local.payment_api.webhook_url
+  # checkout: premium licenses + new sync purchases; subscription events:
+  # keep sync limits in step with quantity changes and cancellations.
+  enabled_events = [
+    "checkout.session.completed",
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
+  ]
+  api_version = var.webhook_api_version
+  description = "BreachLine payment-api (${var.environment})"
 }
 
 # Stripe only returns the signing secret when the endpoint is created, so it
