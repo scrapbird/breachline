@@ -41,10 +41,10 @@
 
 ## Business/Pricing
 
-- [ ] Change yearly pricing to 100 USD
-- [ ] Decide on sync pricing model
+- [x] Change yearly pricing to 100 USD
+- [x] Decide on sync pricing model
 - [ ] Add new pricing objects for remote workspace API
-- [ ] Workspace sync service - decide pricing model
+- [x] Workspace sync service - decide pricing model
 
 ## Documentation
 

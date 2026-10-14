@@ -39,7 +39,7 @@ type LicenseResponse struct {
 var (
 	secretsManagerClient *secretsmanager.Client
 	snsClient            *sns.Client
-	secretsManagerARN    = "arn:aws:secretsmanager:us-east-2:*:secret:breachline-license-signing-key*"
+	signingKeySecretArn  string
 	licenseDeliveryTopic string
 	logger               *slog.Logger
 )
@@ -57,8 +57,10 @@ func init() {
 	
 	// Get environment variables
 	licenseDeliveryTopic = os.Getenv("LICENSE_DELIVERY_TOPIC")
+	signingKeySecretArn = os.Getenv("SIGNING_KEY_SECRET_ARN")
 	logger.Info("Configuration loaded",
 		"license_delivery_topic", licenseDeliveryTopic,
+		"signing_key_secret_arn", signingKeySecretArn,
 		"stage", "init")
 
 	// Initialize AWS clients
@@ -90,7 +92,12 @@ func getPrivateKey(ctx context.Context) (*ecdsa.PrivateKey, error) {
 
 	logger.Info("Loading private key from Secrets Manager")
 
-	secretName := "breachline-license-signing-key"
+	// Env-suffixed (breachline-license-signing-key-<env>), so the ARN comes
+	// from Terraform rather than a hardcoded name.
+	secretName := signingKeySecretArn
+	if secretName == "" {
+		return nil, fmt.Errorf("SIGNING_KEY_SECRET_ARN not set")
+	}
 
 	logger.Info("Fetching secret from Secrets Manager",
 		"secret_name", secretName)

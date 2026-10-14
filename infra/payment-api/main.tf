@@ -182,6 +182,7 @@ resource "aws_lambda_function" "license_generator" {
     variables = {
       LOG_LEVEL              = "INFO"
       LICENSE_DELIVERY_TOPIC = aws_sns_topic.license_delivery.arn
+      SIGNING_KEY_SECRET_ARN = aws_secretsmanager_secret.signing_key.arn
     }
   }
 }

@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build the BreachLine desktop app (Wails) with the sync-API endpoint baked in
-# at build time from the repo-root config.yml (api_domain_name for ENV).
+# at build time from the repo-root config.yml (api_domain_name for ENV). dev has
+# no DNS name, so its raw API Gateway URL is looked up from AWS (needs the
+# breachline AWS profile to be logged in).
 #
 #   ENV=prod ./build.sh                         # prod endpoint (default)
 #   ENV=dev  ./build.sh                          # dev endpoint

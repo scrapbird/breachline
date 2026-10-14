@@ -6,7 +6,7 @@ This guide walks you through setting up Stripe payments for BreachLine software 
 
 The integration allows customers to purchase BreachLine Premium licenses through Stripe Payment Links with two subscription options:
 - **Monthly**: $10 USD/month
-- **Yearly**: $60 USD/year (50% savings)
+- **Yearly**: $100 USD/year (2 months free)
 
 Both options support auto-renewal that customers can manage.
 
@@ -62,9 +62,9 @@ Stripe Payment Links provide several advantages over client-side Checkout integr
 4. Create **Yearly Payment Link**:
    - Click **"+ New"** again
    - **Product**: Select "BreachLine Premium"
-   - **Price**: $60.00 USD
+   - **Price**: $100.00 USD
    - **Billing period**: Yearly (Recurring)
-   - **Description**: Yearly License (50% savings)
+   - **Description**: Yearly License (2 months free)
    - Configure same options as monthly
    - Click **"Create link"**
    - **Copy the Payment Link URL** (e.g., `https://buy.stripe.com/xyz789...`)

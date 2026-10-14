@@ -49,7 +49,7 @@ config:
         subdomain: ""
         enable_ssl: false
       sync_api:
-        api_domain_name: "api-dev.breachline.app"
+        api_domain_name: ""    # empty => no DNS name; app builds look up the raw API Gateway URL
         ses_email_from: "info@breachline.app"
         alarm_email: "alerts@breachline.app"
       payment_api:
