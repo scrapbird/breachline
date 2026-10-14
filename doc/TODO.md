@@ -43,7 +43,8 @@
 
 - [x] Change yearly pricing to 100 USD
 - [x] Decide on sync pricing model
-- [ ] Add new pricing objects for remote workspace API
+- [x] Add new pricing objects for remote workspace API
+- [ ] Handle workspace sync + seat purchases in the stripe-webhook Lambda (write `user_subscriptions` workspace_limit/seat_count instead of issuing a license), then add sync payment links in `infra/stripe`
 - [x] Workspace sync service - decide pricing model
 
 ## Documentation

@@ -49,11 +49,12 @@ The sync API backs workspace/annotation sync and license-gated auth. Its Go lamb
 
 ## Deploying infrastructure
 
-All infra (`infra/account`, `infra/payment-api`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`, driven by a single committed `config.yml` (non-secret) + `secrets.vault.yml` (ansible-vault encrypted). Two environments coexist in the same AWS account, suffixed `-dev`/`-prod` on every resource name + tfstate key; `dev` uses the Stripe sandbox, `prod` the live Stripe API. Account-wide singletons shared by both envs (SES domain identity, API Gateway CloudWatch role) live in `infra/account` (state key `account/terraform.tfstate`, no env suffix); never declare them in a per-env stack.
+All infra (`infra/account`, `infra/payment-api`, `infra/stripe`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`, driven by a single committed `config.yml` (non-secret) + `secrets.vault.yml` (ansible-vault encrypted). Two environments coexist in the same AWS account, suffixed `-dev`/`-prod` on every resource name + tfstate key; `dev` uses the Stripe sandbox, `prod` the live Stripe API. Account-wide singletons shared by both envs (SES domain identity, API Gateway CloudWatch role) live in `infra/account` (state key `account/terraform.tfstate`, no env suffix); never declare them in a per-env stack.
 
 - `make init` - bootstrap `config.yml` + `secrets.vault.yml` + `.vault-password-file` (restore the password file from 1Password on a new machine).
-- `make edit-secrets` - set `vault.environments.<env>.stripe.{api_key,webhook_secret}`.
+- `make edit-secrets` - set `vault.environments.<env>.stripe.api_key`. Stripe products, prices, payment links and the webhook endpoint (plus its signing secret) are managed by `infra/stripe`.
 - `make deploy ENV=dev` / `make deploy ENV=prod` (or `make deploy-dev` / `deploy-prod`) - render + build lambdas + `terraform apply` each enabled component.
+- `make build-app-dev` / `make build-app-prod` - build the desktop app against that environment's sync API (dev uses the raw API Gateway URL; there is deliberately no dev DNS name).
 - `make help` lists all targets. Non-secret per-env config is in `config.yml`; secrets in the vault. Rendered `secrets.env` + `infra/<c>/<env>.tfvars` are gitignored.
 
 # Backend

@@ -14,7 +14,6 @@ What gets created/repaired:
 Per environment (dev, prod) the vault carries:
   Manual-fill (external creds; init writes "" placeholders, you set them):
     - vault.environments.<env>.stripe.api_key       (sk_test_ for dev, sk_live_ for prod)
-    - vault.environments.<env>.stripe.webhook_secret (whsec_...)
   Auto-generated (ECDSA P-256 keypairs, minted when missing/blank):
     - vault.environments.<env>.license.{signing_private_key, public_key}
     - vault.environments.<env>.jwt.{private_key, public_key}
@@ -141,7 +140,9 @@ def repair_vault(vault: dict) -> bool:
     changed = False
     for env in ENVIRONMENTS:
         # External creds -> placeholder only.
-        for path in (("stripe", "api_key"), ("stripe", "webhook_secret")):
+        # (The webhook signing secret is not here: infra/stripe creates the
+        # webhook endpoint and writes its secret straight to Secrets Manager.)
+        for path in (("stripe", "api_key"),):
             full = ("environments", env, *path)
             if get_path(vault, *full) is None:
                 set_path(vault, "", *full)
@@ -238,7 +239,7 @@ def main():
 
     print()
     print("Next steps:")
-    print("  make edit-secrets   # set vault.environments.<env>.stripe.{api_key,webhook_secret}")
+    print("  make edit-secrets   # set vault.environments.<env>.stripe.api_key")
     print("  make render ENV=dev # generate secrets.env + infra/*/dev.tfvars")
     print("  make deploy ENV=dev # build lambdas + terraform apply the dev stack")
 

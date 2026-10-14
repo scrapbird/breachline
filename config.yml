@@ -44,6 +44,7 @@ config:
         website: true
         sync_api: true
         payment_api: true
+        stripe: true
       website:
         domain_name: ""        # empty => serve on the CloudFront default domain
         subdomain: ""
@@ -54,12 +55,15 @@ config:
         alarm_email: "alerts@breachline.app"
       payment_api:
         ses_sender_email: "info@breachline.app"
+      stripe:
+        success_url: ""    # empty => Stripe hosted confirmation page
 
     prod:
       components:
         website: true
         sync_api: true
         payment_api: true
+        stripe: true
       website:
         domain_name: "breachline.app"
         subdomain: "www"
@@ -70,3 +74,5 @@ config:
         alarm_email: "alerts@breachline.app"
       payment_api:
         ses_sender_email: "info@breachline.app"
+      stripe:
+        success_url: "https://breachline.app/success/"

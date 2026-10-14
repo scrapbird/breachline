@@ -98,7 +98,7 @@ Create a Stripe account. Use the **sandbox** for `dev` (`sk_test_…`) and the *
 make edit-secrets    # set vault.environments.<env>.stripe.api_key
 ```
 
-Leave `stripe.webhook_secret` blank for now - the webhook URL doesn't exist until the first deploy.
+That is the only Stripe value set by hand. Products, prices, payment links and the webhook endpoint (with its signing secret) are created by [`infra/stripe`](infra/stripe/README.md) during the deploy.
 
 ## 7. Deploy dev
 
@@ -106,15 +106,27 @@ Leave `stripe.webhook_secret` blank for now - the webhook URL doesn't exist unti
 make deploy ENV=dev
 ```
 
-Builds the Go Lambda zips + Hugo site, then applies **account → payment-api → sync-api → website** in that order (the account layer holds the shared SES domain identity and API Gateway logging role, payment-api signs licenses, sync-api validates them and signs JWTs, website last). Note the Terraform outputs - especially the payment-api `webhook_url`.
+Builds the Go Lambda zips + Hugo site, then applies **account → payment-api → stripe → sync-api → website** in that order:
+- account: the shared SES domain identity and API Gateway logging role
+- payment-api: the Stripe webhook Lambda, license signing and delivery
+- stripe: the catalogue (premium, workspace sync packs, shared seats), premium payment links, and the webhook endpoint pointed at payment-api, whose signing secret it stores for the Lambda
+- sync-api: validates licenses and signs JWTs
+- website: built with the environment's payment links embedded, then uploaded to its bucket
 
-## 8. Stripe - phase 2 (webhook secret)
-
-In the Stripe dashboard, add a webhook endpoint pointing at the payment-api **`webhook_url`** output (`https://<cloudfront>/webhook`). Copy its signing secret (`whsec_…`), then:
+## 8. Test the payment flow
 
 ```sh
-make edit-secrets              # set vault.environments.dev.stripe.webhook_secret
-make tf-payment-api ENV=dev    # redeploy so the Lambda can verify signatures
+stripe login                                 # once; pick the sandbox account
+stripe trigger checkout.session.completed    # webhook -> license generator -> license email
+```
+
+`stripe trigger` uses `stripe@example.com`, which bounces once SES is out of the sandbox. To test delivery without hurting the SES sending reputation, publish straight to the license-generation topic with the SES mailbox simulator:
+
+```sh
+aws sns publish --region us-east-2 --profile breachline \
+  --topic-arn arn:aws:sns:us-east-2:<account-id>:breachline-license-generation-dev \
+  --subject "License Generation Request" \
+  --message '{"email":"success@simulator.amazonses.com","days":30}'
 ```
 
 ## 9. SES (email delivery)
@@ -129,7 +141,7 @@ The account layer (`infra/account`, applied by every `make deploy` or alone with
 Once DNS, SSL and SES are ready and prod secrets are set:
 
 ```sh
-make edit-secrets     # prod Stripe live keys
+make edit-secrets     # prod Stripe live API key (sk_live_)
 make deploy ENV=prod
 ```
 
@@ -146,22 +158,24 @@ The BreachLine desktop app is independent of the infra above - see [`application
 
 # Deploying Infrastructure
 
-All infrastructure (`infra/payment-api`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`. A single committed `config.yml` (non-secret) plus `secrets.vault.yml` (ansible-vault encrypted) is the source of truth; `make render` fans them out to a sourced `secrets.env` and per-component `<env>.tfvars`.
+All infrastructure (`infra/account`, `infra/payment-api`, `infra/stripe`, `infra/sync-api`, `infra/website`) is deployed from the repo-root `Makefile`. A single committed `config.yml` (non-secret) plus `secrets.vault.yml` (ansible-vault encrypted) is the source of truth; `make render` fans them out to a sourced `secrets.env` and per-component `<env>.tfvars`.
 
 Two environments live side by side in the **same AWS account** - every resource name and Terraform state key is suffixed `-dev` / `-prod`. `dev` points at the Stripe **sandbox**, `prod` at the **live** Stripe API. Pick the target with `ENV=dev|prod` (default `dev`).
 
 ```sh
 make init                 # bootstrap config.yml + secrets.vault.yml + .vault-password-file
                           # (on a new machine, restore .vault-password-file from 1Password first)
-make edit-secrets         # set vault.environments.<env>.stripe.{api_key,webhook_secret}
+make edit-secrets         # set vault.environments.<env>.stripe.api_key
 make deploy ENV=dev       # render + build lambdas + terraform apply the dev stack
 make deploy-prod          # shorthand for `make deploy ENV=prod`
+make build-app-dev        # desktop app against the dev sync API (raw API Gateway URL, no DNS name)
+make build-app-prod       # desktop app against the prod sync API (api.breachline.app)
 make help                 # list every target
 ```
 
 - **Non-secret** per-environment config (domains, SES addresses, lambda sizing, component on/off toggles) lives in `config.yml`.
-- **Secrets** (Stripe keys, plus auto-generated license + JWT ECDSA keypairs) live in `secrets.vault.yml`; they are wired straight into AWS Secrets Manager by Terraform, so a deploy needs no manual `put-secret-value` step.
+- **Secrets** (the Stripe API key, plus auto-generated license + JWT ECDSA keypairs) live in `secrets.vault.yml`; they are wired straight into AWS Secrets Manager by Terraform, so a deploy needs no manual `put-secret-value` step.
 - Rendered `secrets.env` and `infra/<component>/<env>.tfvars` are gitignored; `config.yml` and the encrypted `secrets.vault.yml` are committed. The vault password file (`.vault-password-file`) is **not** committed - keep it in 1Password.
-- Deploys use the standard AWS credential chain, so run `aws sso login` (or export creds) before `make deploy`.
+- Every `aws`/`terraform` call in the Makefile uses the `breachline` AWS profile (override with `AWS_PROFILE_NAME=<profile>`), so run `aws sso login --profile breachline` before `make deploy`.
 
-> Note: the SES domain identity for `breachline.app` is a single account-level resource, so only the `prod` stack declares/verifies it; `dev` sends from the same verified domain (`noreply-dev@breachline.app`).
+> Note: account-wide resources (the `breachline.app` SES domain identity and the API Gateway CloudWatch role) live in `infra/account`, applied once and shared by both environments.

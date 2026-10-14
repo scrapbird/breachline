@@ -69,3 +69,8 @@ output "license_generator_log_group" {
   description = "CloudWatch Log Group for License Generator Lambda function logs"
   value       = aws_cloudwatch_log_group.license_generator_logs.name
 }
+
+output "stripe_webhook_secret_arn" {
+  description = "Secrets Manager secret holding the Stripe webhook signing secret (value written by infra/stripe)"
+  value       = aws_secretsmanager_secret.stripe_webhook_secret.arn
+}

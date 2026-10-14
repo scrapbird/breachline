@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
     <!-- Stripe.js -->
     <script src="https://js.stripe.com/v3/"></script>
+    <!-- Payment link URLs for this environment, generated from infra/stripe by `make build-website` -->
+    <script>window.BREACHLINE_PAYMENT_LINKS = {{ site.Data.payment_links | default dict | jsonify | safeJS }};</script>
     <script src="{{ "js/stripe-checkout.js" | relURL }}" defer></script>
     <script src="{{ "js/nav.js" | relURL }}" defer></script>
 </head>

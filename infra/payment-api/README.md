@@ -103,10 +103,7 @@ This infrastructure manages three Lambda functions:
 
 Before deploying, set up your Stripe account:
 
-1. Go to [Stripe Dashboard > Products](https://dashboard.stripe.com/products)
-2. Create product: "BreachLine Premium"
-3. Create prices (monthly/yearly subscriptions)
-4. Get your API keys from [API Keys](https://dashboard.stripe.com/apikeys)
+Only the API key is set by hand: get it from [API Keys](https://dashboard.stripe.com/apikeys) and store it with `make edit-secrets`. Products, prices, payment links and the webhook endpoint are created by Terraform in [`infra/stripe`](../stripe/README.md), which is applied after this stack by `make deploy`.
 
 ### 2. Configure Terraform Variables
 
@@ -171,15 +168,7 @@ aws secretsmanager put-secret-value \
     --region us-east-2
 ```
 
-**Stripe Webhook Secret:**
-```bash
-# Update with your Stripe webhook signing secret (starts with whsec_)
-# Get this from Stripe Dashboard > Webhooks after creating the endpoint
-aws secretsmanager put-secret-value \
-    --secret-id breachline-stripe-webhook-secret \
-    --secret-string "whsec_YOUR_WEBHOOK_SECRET_HERE" \
-    --region us-east-2
-```
+**Stripe Webhook Secret:** not set by hand. This stack creates the empty `breachline-stripe-webhook-secret-<env>` secret; `infra/stripe` creates the Stripe webhook endpoint and writes its signing secret into it. The webhook Lambda reloads the secret when a signature check fails, so a rotated secret takes effect without a redeploy.
 
 ### 6. Understanding Terraform Outputs
 
@@ -208,26 +197,7 @@ terraform output api_gateway_url
 
 ### 7. Configure Stripe Webhook
 
-After deployment, register the webhook in Stripe:
-
-```bash
-# Get the CloudFront webhook URL (this is what you use in Stripe)
-terraform output webhook_url
-```
-
-Then:
-1. Go to [Stripe Dashboard > Webhooks](https://dashboard.stripe.com/webhooks)
-2. Click "Add endpoint"
-3. Enter the **CloudFront webhook URL** from the `webhook_url` output
-4. Select event: `checkout.session.completed`
-5. Copy the signing secret (starts with `whsec_`)
-6. Update the AWS Secrets Manager secret:
-   ```bash
-   aws secretsmanager put-secret-value \
-       --secret-id breachline-stripe-webhook-secret \
-       --secret-string "whsec_YOUR_WEBHOOK_SECRET_HERE" \
-       --region us-east-2
-   ```
+Nothing to do by hand: `infra/stripe` reads this stack's `webhook_url` and `stripe_webhook_secret_arn` outputs from remote state, registers the endpoint for `checkout.session.completed` (pinned to API version `2024-04-10`, which stripe-go v78 requires) and stores the signing secret. Run `make tf-stripe ENV=<env>` after this stack, or let `make deploy` do it.
 
 ## Usage
 

@@ -14,6 +14,7 @@ Generated files (all gitignored, written 0600):
   - infra/website/<env>.tfvars           # non-secret website config
   - infra/sync-api/<env>.tfvars          # non-secret sync-api config
   - infra/payment-api/<env>.tfvars       # non-secret payment-api config
+  - infra/stripe/<env>.tfvars            # non-secret stripe config
   - infra/account/account.tfvars         # account-wide config (not per-env)
 
 Run via `make render ENV=<env>`, or directly:
@@ -116,7 +117,6 @@ export BREACHLINE_ENV="{env}"
 
 # ----- payment-api (Stripe + license signing) -----
 export TF_VAR_stripe_api_key="{sh_str(stripe.get('api_key', ''))}"
-export TF_VAR_stripe_webhook_secret="{sh_str(stripe.get('webhook_secret', ''))}"
 export TF_VAR_license_signing_private_key="{sh_str(lic.get('signing_private_key', ''))}"
 
 # ----- sync-api (license validation + JWT signing) -----
@@ -128,6 +128,7 @@ export TF_VAR_jwt_public_key="{sh_str(jwt.get('public_key', ''))}"
 export MAKE_WEBSITE_ENABLED="{hcl_bool(comps.get('website', True))}"
 export MAKE_SYNC_API_ENABLED="{hcl_bool(comps.get('sync_api', True))}"
 export MAKE_PAYMENT_API_ENABLED="{hcl_bool(comps.get('payment_api', True))}"
+export MAKE_STRIPE_ENABLED="{hcl_bool(comps.get('stripe', True))}"
 """
     write(REPO / "secrets.env", body)
 
@@ -180,6 +181,17 @@ ses_sender_email = "{p.get('ses_sender_email', '')}"
     write(REPO / f"infra/payment-api/{env}.tfvars", body)
 
 
+def render_stripe(c: dict, env: str) -> None:
+    s = env_component(c, env, "stripe")
+    # stripe_api_key is sensitive -> secrets.env (shared with payment-api).
+    body = f"""{HEADER}
+aws_region  = "{c['aws']['region']}"
+environment = "{env}"
+success_url = "{s.get('success_url', '')}"
+"""
+    write(REPO / f"infra/stripe/{env}.tfvars", body)
+
+
 def render_account(c: dict) -> None:
     a = c.get("account") or {}
     body = f"""{HEADER}
@@ -210,6 +222,7 @@ def main() -> None:
     render_website(c, env)
     render_sync_api(c, env)
     render_payment_api(c, env)
+    render_stripe(c, env)
     render_account(c)
     fmt_tfvars()
     print(f"[ok] rendered {env} config from config.yml + secrets.vault.yml")

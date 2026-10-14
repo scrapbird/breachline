@@ -95,14 +95,9 @@ resource "aws_secretsmanager_secret_version" "stripe_api_key" {
   secret_string = var.stripe_api_key
 }
 
-# The webhook signing secret only exists once the Stripe webhook has been
-# pointed at this stack's webhook_url, so the first deploy runs without it.
-# Secrets Manager rejects an empty value; store a placeholder (every webhook
-# then fails signature verification) until the real secret is set.
-resource "aws_secretsmanager_secret_version" "stripe_webhook_secret" {
-  secret_id     = aws_secretsmanager_secret.stripe_webhook_secret.id
-  secret_string = var.stripe_webhook_secret != "" ? var.stripe_webhook_secret : "unset"
-}
+# The webhook signing secret's VALUE is written by infra/stripe, which creates
+# the Stripe webhook endpoint pointed at this stack's webhook_url and gets the
+# signing secret back from Stripe. This stack only owns the (empty) secret.
 
 # IAM role for License Generator Lambda
 resource "aws_iam_role" "license_generator_role" {

@@ -25,6 +25,12 @@ var (
 	// Cache for Stripe API key and webhook secret retrieved from Secrets Manager
 	stripeApiKeyCache        string
 	stripeWebhookSecretCache string
+	// The webhook secret's value is owned by the infra/stripe stack and is
+	// rewritten whenever its webhook endpoint is (re)created, so warm
+	// containers reload it when a signature check fails (rate limited).
+	secretsClient          *secretsmanager.Client
+	stripeWebhookSecretArn string
+	webhookSecretLoadedAt  time.Time
 	// CloudFront secret for validating requests
 	cloudfrontSecret string
 )
@@ -65,7 +71,7 @@ func init() {
 		"stage", "init")
 
 	// Get environment variables
-	stripeWebhookSecretArn := os.Getenv("STRIPE_WEBHOOK_SECRET_ARN")
+	stripeWebhookSecretArn = os.Getenv("STRIPE_WEBHOOK_SECRET_ARN")
 	licenseGenerationTopic = os.Getenv("LICENSE_GENERATION_TOPIC")
 	stripeAPIKeySecretArn := os.Getenv("STRIPE_API_KEY_SECRET_ARN")
 	cloudfrontSecret = os.Getenv("CLOUDFRONT_SECRET")
@@ -89,28 +95,10 @@ func init() {
 	logger.Info("AWS SNS client initialized", "stage", "init")
 
 	// Initialize Secrets Manager client
-	secretsClient := secretsmanager.NewFromConfig(cfg)
+	secretsClient = secretsmanager.NewFromConfig(cfg)
 
 	// Retrieve Stripe webhook secret from Secrets Manager
-	if stripeWebhookSecretArn != "" {
-		logger.Info("Fetching Stripe webhook secret from Secrets Manager")
-		result, err := secretsClient.GetSecretValue(context.Background(), &secretsmanager.GetSecretValueInput{
-			SecretId: &stripeWebhookSecretArn,
-		})
-		if err != nil {
-			logger.Error("Failed to retrieve Stripe webhook secret from Secrets Manager",
-				"error", err,
-				"secret_arn", stripeWebhookSecretArn,
-				"stage", "init")
-		} else if result.SecretString != nil {
-			stripeWebhookSecretCache = *result.SecretString
-			logger.Info("Stripe webhook secret retrieved from Secrets Manager", "stage", "init")
-		} else {
-			logger.Warn("Stripe webhook secret is empty", "stage", "init")
-		}
-	} else {
-		logger.Warn("STRIPE_WEBHOOK_SECRET_ARN not set", "stage", "init")
-	}
+	loadWebhookSecret(context.Background(), "init")
 
 	// Retrieve Stripe API key from Secrets Manager (cached globally)
 	if stripeAPIKeySecretArn != "" {
@@ -180,6 +168,12 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	// Verify webhook signature
 	logger.Info("Verifying webhook signature")
 	event, err := webhook.ConstructEvent([]byte(body), signature, stripeWebhookSecretCache)
+	if err != nil && time.Since(webhookSecretLoadedAt) > time.Minute {
+		// The secret may have been rotated since this container started.
+		logger.Warn("Signature verification failed, reloading webhook secret", "error", err)
+		loadWebhookSecret(ctx, "reload")
+		event, err = webhook.ConstructEvent([]byte(body), signature, stripeWebhookSecretCache)
+	}
 	if err != nil {
 		logger.Error("Webhook signature verification failed",
 			"error", err,
@@ -244,6 +238,33 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		StatusCode: 200,
 		Body:       string(successBody),
 	}, nil
+}
+
+// loadWebhookSecret (re)reads the Stripe webhook signing secret into the
+// cache. Failures are logged and leave the previous value in place.
+func loadWebhookSecret(ctx context.Context, stage string) {
+	webhookSecretLoadedAt = time.Now()
+	if stripeWebhookSecretArn == "" {
+		logger.Warn("STRIPE_WEBHOOK_SECRET_ARN not set", "stage", stage)
+		return
+	}
+	logger.Info("Fetching Stripe webhook secret from Secrets Manager", "stage", stage)
+	result, err := secretsClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: &stripeWebhookSecretArn,
+	})
+	if err != nil {
+		logger.Error("Failed to retrieve Stripe webhook secret from Secrets Manager",
+			"error", err,
+			"secret_arn", stripeWebhookSecretArn,
+			"stage", stage)
+		return
+	}
+	if result.SecretString == nil {
+		logger.Warn("Stripe webhook secret is empty", "stage", stage)
+		return
+	}
+	stripeWebhookSecretCache = *result.SecretString
+	logger.Info("Stripe webhook secret retrieved from Secrets Manager", "stage", stage)
 }
 
 // processCheckoutSession processes a successful Stripe checkout session and generates a license

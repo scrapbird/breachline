@@ -27,12 +27,6 @@ variable "stripe_api_key" {
   sensitive   = true
 }
 
-variable "stripe_webhook_secret" {
-  description = "Stripe webhook signing secret (whsec_...)"
-  type        = string
-  sensitive   = true
-}
-
 variable "license_signing_private_key" {
   description = "ECDSA private key (PEM) used to sign issued licenses"
   type        = string

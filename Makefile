@@ -34,6 +34,10 @@ ENV ?= dev
 AWS_PROFILE_NAME ?= breachline
 export AWS_PROFILE := $(AWS_PROFILE_NAME)
 
+# Extra wails flags for the desktop app build (webkit2_41 for current Linux
+# distros, matching the release workflow).
+APP_FLAGS ?= -tags webkit2_41 -webview2 browser
+
 # Default validity for `make license`.
 DAYS ?= 30
 
@@ -48,11 +52,12 @@ ENV_GUARD = \
 SRC := set -a; . $(REPO)/secrets.env; set +a
 
 .PHONY: help venv init render edit-secrets view-secrets edit-config license \
-        build build-payment-api build-sync-api build-website preview-website \
-        tf-account tf-payment-api tf-sync-api tf-website \
-        tf-account-destroy tf-payment-api-destroy tf-sync-api-destroy tf-website-destroy \
+        build build-payment-api build-sync-api build-website preview-website publish-website \
+        build-app build-app-dev build-app-prod \
+        tf-account tf-payment-api tf-stripe tf-sync-api tf-website \
+        tf-account-destroy tf-payment-api-destroy tf-stripe-destroy tf-sync-api-destroy tf-website-destroy \
         enable-website disable-website enable-sync-api disable-sync-api \
-        enable-payment-api disable-payment-api \
+        enable-payment-api disable-payment-api enable-stripe disable-stripe \
         deploy destroy all clean \
         deploy-dev deploy-prod destroy-dev destroy-prod
 
@@ -140,6 +145,12 @@ enable-payment-api:  ## @toggle Turn the payment-api ON for ENV (persists) + app
 disable-payment-api:  ## @toggle Turn the payment-api OFF for ENV (persists) + destroy
 	@$(ENV_GUARD); ./scripts/set-flag.sh payment_api false $(ENV); $(MAKE) tf-payment-api-destroy ENV=$(ENV)
 
+enable-stripe:  ## @toggle Turn the Stripe catalogue/webhook ON for ENV (persists) + apply
+	@$(ENV_GUARD); ./scripts/set-flag.sh stripe true $(ENV); $(MAKE) tf-stripe ENV=$(ENV)
+
+disable-stripe:  ## @toggle Turn the Stripe catalogue/webhook OFF for ENV (persists) + destroy
+	@$(ENV_GUARD); ./scripts/set-flag.sh stripe false $(ENV); $(MAKE) tf-stripe-destroy ENV=$(ENV)
+
 # ==================== Builds ====================
 
 build-payment-api:  ## @build Compile the payment-api Go lambda zips
@@ -148,13 +159,48 @@ build-payment-api:  ## @build Compile the payment-api Go lambda zips
 build-sync-api:  ## @build Compile the sync-api Go lambda zips
 	@cd infra/sync-api && ./build.sh
 
-build-website:  ## @build Build the live website into infra/website/src/public (drafts excluded)
+# The purchase buttons read ENV's Stripe payment links from a generated Hugo
+# data file (gitignored), taken from the infra/stripe outputs. If that stack
+# isn't deployed for ENV the buttons show a "not configured" message.
+build-website:  ## @build Build the live website for ENV into infra/website/src/public (drafts excluded)
+	@$(ENV_GUARD); mkdir -p infra/website/src/data; \
+	  if links=$$(cd infra/stripe && \
+	      terraform init -reconfigure -input=false -backend-config="key=stripe/$(ENV)/terraform.tfstate" >/dev/null 2>&1 && \
+	      terraform output -json payment_links 2>/dev/null); then \
+	    echo "$$links" > infra/website/src/data/payment_links.json; \
+	    echo "[ok] payment links for $(ENV): $$links"; \
+	  else \
+	    echo '{}' > infra/website/src/data/payment_links.json; \
+	    echo "[warn] no infra/stripe outputs for $(ENV); purchase buttons will be unconfigured"; \
+	  fi
 	@cd infra/website/src && hugo --minify --cleanDestinationDir
+
+# Upload the built site to ENV's bucket and invalidate CloudFront. Run after
+# tf-website (which calls it), so the bucket + distribution exist.
+publish-website:  ## @build Upload infra/website/src/public to ENV's bucket + invalidate the CDN
+	@$(ENV_GUARD); cd infra/website && \
+	  terraform init -reconfigure -input=false -backend-config="key=website/$(ENV)/terraform.tfstate" >/dev/null && \
+	  bucket=$$(terraform output -raw s3_bucket_name) && dist=$$(terraform output -raw cloudfront_distribution_id) && \
+	  aws s3 sync ./src/public/ "s3://$$bucket/" --delete --only-show-errors && \
+	  aws cloudfront create-invalidation --distribution-id "$$dist" --paths "/*" >/dev/null && \
+	  echo "[ok] published website to s3://$$bucket (invalidated $$dist)"
 
 preview-website:  ## @build Preview the website WITH drafts (live reload) on 0.0.0.0:1313 (LAN-accessible)
 	@cd infra/website/src && hugo server -D --bind 0.0.0.0
 
 build: build-payment-api build-sync-api build-website  ## @core Build all lambda zips + the website
+
+# Desktop app, with ENV's sync-API endpoint baked in (application/build.sh).
+# dev has no DNS name, so its raw API Gateway URL is looked up from AWS.
+# Output: application/build/bin. Extra wails flags via APP_FLAGS.
+build-app:  ## @build Build the desktop app for ENV (extra wails flags via APP_FLAGS)
+	@$(ENV_GUARD); cd application && ENV=$(ENV) ./build.sh $(APP_FLAGS)
+
+build-app-dev:  ## @build Build the desktop app against the dev sync API
+	@$(MAKE) build-app ENV=dev
+
+build-app-prod:  ## @build Build the desktop app against the prod sync API
+	@$(MAKE) build-app ENV=prod
 
 # ==================== Terraform applies ====================
 # Each renders ENV's config, sources secrets.env (TF_VAR_* secrets), inits the
@@ -178,9 +224,17 @@ tf-sync-api: render build-sync-api  ## @apply Apply infra/sync-api for ENV
 	  terraform init -reconfigure -backend-config="key=sync-api/$(ENV)/terraform.tfstate" && \
 	  terraform apply -auto-approve -var-file=$(ENV).tfvars
 
-tf-website: render build-website  ## @apply Apply infra/website for ENV
+tf-website: render build-website  ## @apply Apply infra/website for ENV, then publish the built site
 	@$(ENV_GUARD); $(SRC); cd infra/website && \
 	  terraform init -reconfigure -backend-config="key=website/$(ENV)/terraform.tfstate" && \
+	  terraform apply -auto-approve -var-file=$(ENV).tfvars
+	@$(MAKE) publish-website ENV=$(ENV)
+
+# Needs payment-api applied first: reads its webhook_url + webhook secret ARN
+# from remote state. STRIPE key is TF_VAR_stripe_api_key from the vault.
+tf-stripe: render  ## @apply Apply infra/stripe for ENV (products, prices, payment links, webhook)
+	@$(ENV_GUARD); $(SRC); cd infra/stripe && \
+	  terraform init -reconfigure -backend-config="key=stripe/$(ENV)/terraform.tfstate" && \
 	  terraform apply -auto-approve -var-file=$(ENV).tfvars
 
 # ==================== Terraform destroys ====================
@@ -201,6 +255,11 @@ tf-sync-api-destroy: render  ## @destroy Destroy infra/sync-api for ENV
 	  terraform init -reconfigure -backend-config="key=sync-api/$(ENV)/terraform.tfstate" && \
 	  terraform destroy -auto-approve -var-file=$(ENV).tfvars
 
+tf-stripe-destroy: render  ## @destroy Destroy infra/stripe for ENV (Stripe catalogue + webhook endpoint)
+	@$(ENV_GUARD); $(SRC); cd infra/stripe && \
+	  terraform init -reconfigure -backend-config="key=stripe/$(ENV)/terraform.tfstate" && \
+	  terraform destroy -auto-approve -var-file=$(ENV).tfvars
+
 tf-website-destroy: render  ## @destroy Destroy infra/website for ENV
 	@$(ENV_GUARD); $(SRC); cd infra/website && \
 	  terraform init -reconfigure -backend-config="key=website/$(ENV)/terraform.tfstate" && \
@@ -208,8 +267,10 @@ tf-website-destroy: render  ## @destroy Destroy infra/website for ENV
 
 # ==================== Full pipeline ====================
 # Apply order: account (shared SES + API Gateway logging role) -> payment-api
-# (license signing + Stripe) -> sync-api (validates licenses, signs JWTs) ->
-# website. Each env component honours its toggle so a disabled one is skipped.
+# (license signing + Stripe webhook Lambda) -> stripe (catalogue + webhook
+# endpoint, needs payment-api's URL) -> sync-api (validates licenses, signs
+# JWTs) -> website (embeds stripe's payment links). Each env component honours
+# its toggle so a disabled one is skipped.
 
 deploy: render  ## @core Build + apply the account layer + every enabled component for ENV
 	@$(ENV_GUARD)
@@ -217,6 +278,9 @@ deploy: render  ## @core Build + apply the account layer + every enabled compone
 	@$(SRC); if [ "$$MAKE_PAYMENT_API_ENABLED" = "true" ]; then \
 	    $(MAKE) tf-payment-api ENV=$(ENV); \
 	  else echo "[skip] payment-api disabled for $(ENV)"; fi
+	@$(SRC); if [ "$$MAKE_STRIPE_ENABLED" = "true" ]; then \
+	    $(MAKE) tf-stripe ENV=$(ENV); \
+	  else echo "[skip] stripe disabled for $(ENV)"; fi
 	@$(SRC); if [ "$$MAKE_SYNC_API_ENABLED" = "true" ]; then \
 	    $(MAKE) tf-sync-api ENV=$(ENV); \
 	  else echo "[skip] sync-api disabled for $(ENV)"; fi
@@ -229,6 +293,7 @@ destroy: render  ## @core Destroy every component for ENV (reverse order; keeps 
 	@$(ENV_GUARD)
 	@$(MAKE) tf-website-destroy ENV=$(ENV)
 	@$(MAKE) tf-sync-api-destroy ENV=$(ENV)
+	@$(MAKE) tf-stripe-destroy ENV=$(ENV)
 	@$(MAKE) tf-payment-api-destroy ENV=$(ENV)
 	@echo "[ok] destroy complete ($(ENV))"
 
