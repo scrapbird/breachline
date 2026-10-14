@@ -12,7 +12,7 @@ It uses Stripe's official Terraform provider (`stripe/stripe`), pinned exactly t
 | Product: BreachLine Workspace Sync | Price: 5 USD / month per pack of 5 workspaces (`sync_workspace_pack_monthly`), sold by quantity |
 | Product: BreachLine Shared Seats | Price: 1 USD / month per seat (`sync_seat_monthly`), sold by quantity |
 | Payment links | Premium monthly and yearly; sync (1 to 100 packs, plus optional seats); seats on their own. All allow promotion codes |
-| Webhook endpoint | `checkout.session.completed` and `customer.subscription.created/updated/deleted` to payment-api's `webhook_url`, API version `2024-04-10` |
+| Webhook endpoint | `checkout.session.completed`, `invoice.paid` and `customer.subscription.created/updated/deleted` to payment-api's `webhook_url`, API version `2024-04-10` |
 | Secrets Manager secret version | The webhook signing secret, written into payment-api's `breachline-stripe-webhook-secret-<env>` |
 
 Pricing follows `doc/PRICING.md`. Each price has a `lookup_key` and `breachline_product` metadata so code can identify it without hardcoding Stripe IDs, which differ between the sandbox and live accounts.
@@ -21,7 +21,8 @@ Pricing follows `doc/PRICING.md`. Each price has a `lookup_key` and `breachline_
 
 The payment-api webhook Lambda classifies each checkout by its prices' `breachline_product` metadata:
 
-- **premium**: issues a license and emails it (the existing flow).
+- **premium**: issues a license and emails it, valid until the end of the paid billing period plus a 7-day grace window.
+- **premium renewals**: each paid renewal invoice (`invoice.paid` with billing reason `subscription_cycle`, or `subscription_update` for plan switches such as monthly to yearly) issues and emails a new license covering the new period plus the grace window. The first invoice (`subscription_create`) is skipped because checkout already issued that license.
 - **sync_workspaces / sync_seats**: recomputes the buyer's sync limits from every active subscription across all Stripe customers with their email, and writes them to sync-api's `user_subscriptions` table: `workspace_limit = 5 x packs` (from the price's `workspaces_per_unit`) and `seat_count = seats`. Subscriptions that are `active`, `trialing` or `past_due` count; cancelled, unpaid and incomplete ones don't.
 - Anything else (for example the throwaway product `stripe trigger` creates) is logged and ignored.
 
@@ -71,6 +72,19 @@ stripe login                                              # once; pick the sandb
 stripe fixtures infra/stripe/fixtures/premium-checkout.json   # license issued + emailed
 stripe fixtures infra/stripe/fixtures/sync-checkout.json      # 2 packs + 3 seats -> 10 workspaces, 3 seats
 stripe fixtures infra/stripe/fixtures/seats-checkout.json     # +2 seats, summed with the above
+```
+
+To test a premium renewal, use a test clock: subscribe a customer, then move time past the billing period. The webhook logs `Premium subscription renewed, issuing license`. Licenses are measured from real time, so with the clock 32 days ahead the renewed license shows about 68 days rather than 38.
+
+```sh
+NOW=$(date +%s)
+CLOCK=$(stripe post /v1/test_helpers/test_clocks -d frozen_time=$NOW | jq -r .id)
+CUS=$(stripe post /v1/customers -d email=success@simulator.amazonses.com -d test_clock=$CLOCK \
+  -d payment_method=pm_card_visa -d "invoice_settings[default_payment_method]=pm_card_visa" | jq -r .id)
+PRICE=$(stripe get /v1/prices -d "lookup_keys[]=premium_monthly" | jq -r '.data[0].id')
+stripe post /v1/subscriptions -d customer=$CUS -d "items[0][price]=$PRICE"
+stripe post /v1/test_helpers/test_clocks/$CLOCK/advance -d frozen_time=$((NOW + 32*86400))
+stripe delete /v1/test_helpers/test_clocks/$CLOCK --confirm    # cleanup (deletes the customer too)
 ```
 
 `stripe trigger checkout.session.completed` still works but buys a non-BreachLine product, so the webhook ignores it. The license sender also redirects reserved test domains (`example.com`, `.test`, ...) to the SES simulator, so no test can cause a bounce.

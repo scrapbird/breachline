@@ -14,7 +14,7 @@ This infrastructure manages three Lambda functions:
 - **Source**: `src/license-generator/`
 
 ### 2. Stripe Webhook Handler
-- **Purpose**: Processes Stripe webhook events: premium purchases publish license requests; workspace sync and seat purchases (and subscription changes/cancellations) set the buyer's limits in sync-api's `user_subscriptions` table. See [`infra/stripe`](../stripe/README.md#how-purchases-are-handled)
+- **Purpose**: Processes Stripe webhook events: premium purchases and renewals (`invoice.paid`) publish license requests valid to the end of the paid period plus 7 days; workspace sync and seat purchases (and subscription changes/cancellations) set the buyer's limits in sync-api's `user_subscriptions` table. See [`infra/stripe`](../stripe/README.md#how-purchases-are-handled)
 - **Runtime**: Go (provided.al2023)
 - **Trigger**: API Gateway endpoint receiving Stripe webhooks
 - **Exposure**: HTTPS endpoint exposed to internet (Stripe webhooks only)

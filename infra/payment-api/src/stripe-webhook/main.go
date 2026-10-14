@@ -245,6 +245,18 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			"sync", kind.sync)
 		return successResponse(), nil
 
+	case "invoice.paid":
+		var inv stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
+			logger.Error("Failed to parse invoice", "error", err)
+			return errorResponse(400, "Failed to parse invoice"), nil
+		}
+		if err := handleInvoicePaid(&inv); err != nil {
+			logger.Error("Failed to process invoice", "error", err, "invoice_id", inv.ID)
+			return errorResponse(500, "Processing failed"), nil
+		}
+		return successResponse(), nil
+
 	case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted":
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
@@ -323,47 +335,37 @@ func processCheckoutSession(session *stripe.CheckoutSession) (bool, string) {
 		subscriptionID = session.Subscription.ID
 	}
 
-	// Calculate license duration based on subscription interval
-	licenseDays := 365 // Default to yearly
-
+	// License runs to the end of the paid billing period plus a grace window;
+	// each renewal (invoice.paid) issues the next one. See renewal.go.
+	licenseDays := defaultLicenseDays
 	if subscriptionID != "" {
 		logger.Info("Fetching subscription details",
 			"subscription_id", subscriptionID)
 		sub, err := subscription.Get(subscriptionID, nil)
-		if err != nil {
-			logger.Warn("Failed to retrieve subscription, using default",
+		if err != nil || sub.CurrentPeriodEnd == 0 {
+			logger.Warn("Failed to retrieve subscription period, using default",
 				"error", err,
 				"subscription_id", subscriptionID,
-				"default_days", 365)
+				"default_days", defaultLicenseDays)
 		} else {
-			// Get the plan from subscription items
-			if sub.Items != nil && len(sub.Items.Data) > 0 {
-				price := sub.Items.Data[0].Price
-				if price != nil && price.Recurring != nil {
-					interval := price.Recurring.Interval
-					if interval == stripe.PriceRecurringIntervalMonth {
-						// Calculate days until next month from now
-						now := time.Now().UTC()
-						nextMonth := now.AddDate(0, 1, 0)
-						licenseDays = int(nextMonth.Sub(now).Hours() / 24)
-						logger.Info("Monthly subscription detected",
-							"interval", "monthly",
-							"license_days", licenseDays)
-					} else if interval == stripe.PriceRecurringIntervalYear {
-						licenseDays = 365
-						logger.Info("Yearly subscription detected",
-							"interval", "yearly",
-							"license_days", 365)
-					}
-				}
-			}
+			licenseDays = licenseDaysUntil(sub.CurrentPeriodEnd, time.Now())
+			logger.Info("License period from subscription",
+				"current_period_end", sub.CurrentPeriodEnd,
+				"license_days", licenseDays)
 		}
 	}
 
+	return publishLicenseRequest(customerEmail, licenseDays, session.ID)
+}
+
+// publishLicenseRequest asks the license generator (via SNS) to issue and
+// email a license valid for days. source identifies the triggering Stripe
+// object (checkout session or invoice) in logs.
+func publishLicenseRequest(customerEmail string, licenseDays int, source string) (bool, string) {
 	logger.Info("License generation request",
 		"email", customerEmail,
 		"validity_days", licenseDays,
-		"session_id", session.ID)
+		"source", source)
 
 	// Publish license generation request to SNS
 	licenseReq := LicenseRequest{

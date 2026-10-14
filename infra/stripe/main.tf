@@ -252,10 +252,12 @@ resource "stripe_payment_link" "seats" {
 
 resource "stripe_webhook_endpoint" "payment_api" {
   url = local.payment_api.webhook_url
-  # checkout: premium licenses + new sync purchases; subscription events:
-  # keep sync limits in step with quantity changes and cancellations.
+  # checkout: first premium license + new sync purchases; invoice.paid:
+  # renewed premium licenses; subscription events: keep sync limits in step
+  # with quantity changes and cancellations.
   enabled_events = [
     "checkout.session.completed",
+    "invoice.paid",
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
